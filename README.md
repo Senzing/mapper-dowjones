@@ -15,8 +15,8 @@ Loading watch lists requires some special features and configurations of Senzing
 
 Usage:
 ```console
-usage: dj2json.py [-h] [-i INPUTFILE] [-o OUTPUTFILE] [-d DATASOURCE]
-                  [-r DISCRELTYPE] [-c ISOCOUNTRYSIZE] [-s STATISTICSFILE]
+usage: dj2json.py [-h] [-i INPUTFILE] [-o OUTPUTFILE] [-d DATASOURCE] [-nr]
+                  [-c ISOCOUNTRYSIZE] [-s STATISTICSFILE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -27,9 +27,9 @@ optional arguments:
                         .json extension.
   -d DATASOURCE, --dataSource DATASOURCE
                         please use DJ-PFA or DJ-HRF based on the type of file.
-  -r DISCRELTYPE, --discrelType DISCRELTYPE
-                        disclosed relationship type (1-standard, 2=pointer
-                        only, 0=none)
+  -nr, --noRelationships
+                        do not create disclosed realtionships, an attribute
+                        will still be stored
   -c ISOCOUNTRYSIZE, --isoCountrySize ISOCOUNTRYSIZE
                         ISO country code size. Either 2 or 3, default=3.
   -s STATISTICSFILE, --statisticsFile STATISTICSFILE
@@ -104,6 +104,7 @@ Configuration updates include:
 First, download the xml file you want to load from the DowJones website.  Here are a couple of examples of how the files will be named ...
 - PFA2_201902282200_F.xml           <--Risk and Compliance database (PFA)
 - DJRC_HRF_XML_201903012359_F.xml   <--High Risk File or (HRF) 
+
 It would be a good practice to keep a history of these files on a directory where you will store other source data files loaded into Senzing. 
 
 Second, run the mapper.  Typical usage:
@@ -111,10 +112,11 @@ Second, run the mapper.  Typical usage:
 python3 dj2json.py -i /<path-to-file>/PFA2_201902282200_F.xml
 ```
 The output file defaults to the same name and location as the input file and a .json extension is added.
-- Use the -o parameter if you want a supply a different output file name or location
+- Use the -o parameter if you want a supply a different output file name or location.
 - Use the -c parameter to change from 3 character to 2 character ISO country codes.
 - use the -d parameter if you have renamed the input file so that neither PFA nor HRF is in the file name.
 - Use the -s parameter to log the mapping statistics to a file.
+- Use the -nr parameter to not create relationships.  This watch list has many disclosed relationships.  It is good to have them, but it loads faster if you turn them off.
 
 *Note* The mapping satistics should be reviewed occasionally to determine if there are other values that can be mapped to new features.  Check the UNKNOWN_ID section for values that you may get from other data sources that you would like to make into their own features.  Most of these values were not mapped because there just aren't enough of them to matter and/or you are not likely to get them from any other data sources. However, DUNS_NUMBER, LEI_NUMBER, and the new features added were found by reviewing these statistics!
 

@@ -3,20 +3,52 @@
 import os
 import sys
 import argparse
-from datetime import datetime
-import json
+import signal
+import time
+from datetime import datetime, timedelta
 import xml.etree.ElementTree as etree
-import re
+import json
 import random
+import re
+
+from mapping_functions import mapping_functions
 
 #----------------------------------------
 def pause(question='PRESS ENTER TO CONTINUE ...'):
     """ pause for debug purposes """
-    if sys.version[0] == '2':
-        response = raw_input(question)
-    else:
-        response = input(question)
+    try: response = input(question)
+    except KeyboardInterrupt:
+        response = None
+        global shutDown
+        shutDown = True
     return response
+
+#----------------------------------------
+def signal_handler(signal, frame):
+    print('USER INTERUPT! Shutting down ... (please wait)')
+    global shutDown
+    shutDown = True
+    return
+        
+#----------------------------------------
+def updateStat(cat1, cat2, example = None):
+    if cat1 not in statPack:
+        statPack[cat1] = {}
+    if cat2 not in statPack[cat1]:
+        statPack[cat1][cat2] = {}
+        statPack[cat1][cat2]['count'] = 1
+
+    statPack[cat1][cat2]['count'] += 1
+    if example:
+        if 'examples' not in statPack[cat1][cat2]:
+            statPack[cat1][cat2]['examples'] = []
+        if example not in statPack[cat1][cat2]['examples']:
+            if len(statPack[cat1][cat2]['examples']) < 5:
+                statPack[cat1][cat2]['examples'].append(example)
+            else:
+                randomSampleI = random.randint(2,4)
+                statPack[cat1][cat2]['examples'][randomSampleI] = example
+    return
 
 #----------------------------------------
 def getAttr (segment, tagName):
@@ -43,72 +75,21 @@ def getValue (segment, tagName = None):
     return value
 
 #----------------------------------------
-def formatDate(inStr):
-    """ format a date as yyyy-mm-dd """
-    #--bypass if not complete
-    outStr = inStr
-    #if len(inStr) >= 6:
-
-    formatList = []
-    formatList.append("%Y-%m-%d")
-    formatList.append("%m/%d/%Y")
-    formatList.append("%m/%d/%y")
-    formatList.append("%d %b %Y")
-    formatList.append("%d %m %Y")
-    #formatList.append("%Y")
-    #formatList.append("CIRCA %Y")
-
-    for format in formatList:
-        #outStr = datetime.strftime(datetime.strptime(inStr, format), '%Y-%m-%d')
-        try: outStr = datetime.strftime(datetime.strptime(inStr, format), '%Y-%m-%d')
-        except: pass
-        else: 
-            break
-
-    return outStr
-
-#----------------------------------------
-def convertNameType(inValue):
-    if inValue.upper() == 'PRIMARY NAME':
-        outValue = 'PRIMARY'
-    else:
-        outValue = inValue[0:25]
-    return outValue
-
-#----------------------------------------
-def convertNameType(inValue):
-    if inValue.upper() == 'PRIMARY NAME':
-        outValue = 'PRIMARY'
-    else:
-        outValue = inValue[0:25]
-    return outValue
-
-#----------------------------------------
-def convertDateType(inValue):
-    if inValue.upper() == 'DATE OF BIRTH':
-        outValue = 'DATE_OF_BIRTH'
-    elif inValue.upper() == 'DECEASED DATE':
-        outValue = 'DATE_OF_DEATH'
-    elif inValue.upper() == 'DATE OF REGISTRATION':
-        outValue = 'REGISTRATION_DATE'
-    else:
-        outValue = inValue
-    return outValue
-
-#----------------------------------------
-def idNoteParse(notes, isoCodes):
+def idNoteParse(notes, codeType):
 
     #--check if enclosed in parens
     notes = notes.lower().replace('.','')
     groupedStrings = re.findall('\(.*?\)',notes)
     for maybeCountry in groupedStrings:
         maybeCountry = maybeCountry[1:len(maybeCountry)-1]
-        if maybeCountry in isoCodes:
-            return isoCodes[maybeCountry]
+        isoCountry = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+        if isoCountry:
+            return isoCountry
         elif ',' in maybeCountry:
             countryName = maybeCountry[maybeCountry.find(',')+1:].strip()
-            if countryName in isoCodes:
-                return isoCodes[countryName]
+            isoCountry = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+            if isoCountry:
+                return isoCountry
 
     #--look for various labels
     tokenList = []
@@ -120,9 +101,11 @@ def idNoteParse(notes, isoCodes):
     #--if single token (just confirm or deny)
     if len(tokenList) == 1:
         if tokenList[0][-1] in (',', ';', ':'):
-            tokenList[0] = tokenList[0][0:-1] 
-        if tokenList[0] in isoCodes:
-            return isoCodes[tokenList[0]]
+            tokenList[0] = tokenList[0][0:-1]
+        maybeCountry = tokenList[0]
+        isoCountry = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+        if isoCountry:
+            return isoCountry
         else: 
             return None
 
@@ -133,14 +116,31 @@ def idNoteParse(notes, isoCodes):
     for currentToken in tokenList:
         if currentToken[-1] in (',', ';', ':'):
             currentToken = currentToken[0:-1] 
-        if currentToken not in ('id', 'in','is','on','no','and') and currentToken in isoCodes:  #--careful of connecting words here!
-            return isoCodes[currentToken]
-        elif priorToken1 and priorToken1 + ' ' + currentToken in isoCodes:
-            return isoCodes[priorToken1 + ' ' + currentToken]
-        elif priorToken2 and (priorToken2 + ' ' + priorToken1 + ' ' + currentToken) in isoCodes:
-            return isoCodes[priorToken2 + ' ' + priorToken1 + ' ' + currentToken]
-        elif priorToken3 and (priorToken3 + ' ' + priorToken2 + ' ' + priorToken1 + ' ' + currentToken) in isoCodes:
-            return isoCodes[priorToken3 + ' ' + priorToken2 + ' ' + priorToken1 + ' ' + currentToken]
+
+        maybeCountry = currentToken
+        isoCountry0 = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+        isoCountry1 = None
+        isoCountry2 = None
+        isoCountry3 = None
+
+        if priorToken1:
+            maybeCountry = priorToken1 + ' ' + currentToken
+            isoCountry1 = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+        if priorToken2:
+            maybeCountry = priorToken2 + ' ' + priorToken1 + ' ' + currentToken
+            isoCountry2 = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+        if priorToken3:
+            maybeCountry = priorToken3 + ' ' + priorToken2 + ' ' + priorToken1 + ' ' + currentToken
+            isoCountry3 = mappingLib.isoCountryCode(maybeCountry) if codeType == 'country' else mappingLib.isoStateCode(maybeCountry)
+
+        if isoCountry0 and currentToken not in ('id', 'in','is','on','no','and'):  #--careful of connecting words here!
+            return isoCountry0
+        elif isoCountry1:
+            return isoCountry1
+        elif isoCountry2:
+            return isoCountry2
+        elif isoCountry3:
+            return isoCountry3
 
         priorToken3 = priorToken2
         priorToken2 = priorToken1
@@ -149,27 +149,8 @@ def idNoteParse(notes, isoCodes):
     return None
 
 #----------------------------------------
-def updateStat(cat1, cat2, example = None):
-    if cat1 not in statPack:
-        statPack[cat1] = {}
-    if cat2 not in statPack[cat1]:
-        statPack[cat1][cat2] = {}
-        statPack[cat1][cat2]['count'] = 1
-
-    statPack[cat1][cat2]['count'] += 1
-    if example:
-        if 'examples' not in statPack[cat1][cat2]:
-            statPack[cat1][cat2]['examples'] = []
-        if example not in statPack[cat1][cat2]['examples']:
-            if len(statPack[cat1][cat2]['examples']) < 5:
-                statPack[cat1][cat2]['examples'].append(example)
-            else:
-                randomSampleI = random.randint(2,4)
-                statPack[cat1][cat2]['examples'][randomSampleI] = example
-    return
-
-#----------------------------------------
 def concatDateParts(day, month, year):
+    #--15-mar-2010 is format
     fullDate = ''
     if day:
         fullDate += day + '-'
@@ -189,8 +170,11 @@ def g2Mapping(masterRecord, recordType):
     global longNameMiddleCnt
     global longAddrLineCnt
     
-    #--initiailze composite key lists
+    #--initialize composite key lists
     ckNameList = []
+    ckDobList = []
+    ckDunsList = []
+    ckGroupAssnList = []
     isoCountriesList = []
 
     #--header
@@ -213,13 +197,29 @@ def g2Mapping(masterRecord, recordType):
     deceased = getValue(masterRecord, 'Deceased')
     if deceased == 'Yes':
         jsonData['DECEASED'] = deceased
-        updateStat('USEFUL_DATA', 'DECEASED')
+        updateStat('OTHER_DATA', 'DECEASED')
     
     #--names
+    # <NameType NameTypeID="1" RecordType="Person">Primary Name</NameType>
+    # <NameType NameTypeID="2" RecordType="Person">Also Known As</NameType>
+    # <NameType NameTypeID="3" RecordType="Person">Low Quality AKA</NameType>
+    # <NameType NameTypeID="4" RecordType="Person">Maiden Name</NameType>
+    # <NameType NameTypeID="5" RecordType="Person">Formerly Known As</NameType>
+    # <NameType NameTypeID="6" RecordType="Person">Spelling Variation</NameType>
+    # <NameType NameTypeID="7" RecordType="Entity">Primary Name</NameType>
+    # <NameType NameTypeID="8" RecordType="Entity">Also Known As</NameType>
+    # <NameType NameTypeID="9" RecordType="Entity">Formerly Known As</NameType>
+    # <NameType NameTypeID="10" RecordType="Entity">Spelling Variation</NameType>
+    # <NameType NameTypeID="11" RecordType="Entity">Low Quality AKA</NameType>
+    orgPersonNameConflict = False
     thisList = []
     for nameRecord in masterRecord.findall('NameDetails/Name'):
-        nameType = convertNameType(nameRecord.attrib['NameType'])
+        nameType = nameRecord.attrib['NameType'][0:25]
+        if 'PRIMARY' in nameType.upper():
+            nameType = 'PRIMARY'
+
         for nameValue in nameRecord.findall('NameValue'):
+            nameStr = ''
             name = {}
             name['NAME_TYPE'] = nameType
             updateStat('NAME_TYPE', nameType)
@@ -230,6 +230,7 @@ def g2Mapping(masterRecord, recordType):
                     nameOrg = ' '.join(nameOrg.split()[:16])
                     longNameOrgCnt += 1
                 name['NAME_ORG'] = nameOrg
+                nameStr = nameOrg
 
             nameLast = getValue(nameValue, 'Surname')
             if nameLast:
@@ -237,6 +238,7 @@ def g2Mapping(masterRecord, recordType):
                     nameLast = ' '.join(nameLast.split()[:5])
                     longNameLastCnt += 1
                 name['NAME_LAST'] = nameLast
+                nameStr = nameLast
 
             nameMaiden = getValue(nameValue, 'MaidenName')
             if nameMaiden and not nameLast:  #--either Surname or MaidenName will be populated
@@ -244,6 +246,7 @@ def g2Mapping(masterRecord, recordType):
                     nameMaiden = ' '.join(nameMaiden.split()[:5])
                     longNameMaidenCnt += 1
                 name['NAME_LAST'] = nameMaiden
+                nameStr = nameLast
 
             nameFirst = getValue(nameValue, 'FirstName')
             if nameFirst:
@@ -251,6 +254,7 @@ def g2Mapping(masterRecord, recordType):
                     nameFirst = ' '.join(nameFirst.split()[:5])
                     longNameFirstCnt += 1
                 name['NAME_FIRST'] = nameFirst
+                nameStr += (' '+nameFirst)
 
             nameMiddle = getValue(nameValue, 'MiddleName')
             if nameMiddle:
@@ -258,6 +262,7 @@ def g2Mapping(masterRecord, recordType):
                     nameMiddle = ' '.join(nameMiddle.split()[:5])
                     longNameMiddleCnt += 1
                 name['NAME_MIDDLE'] = nameMiddle
+                nameStr += (' '+nameMiddle)
 
             namePrefix = getValue(nameValue, 'TitleHonorific')
             if namePrefix:
@@ -267,7 +272,12 @@ def g2Mapping(masterRecord, recordType):
                 name['NAME_SUFFIX'] = nameSuffix
             
             thisList.append(name)
+            ckNameList.append(nameStr)
             
+            #--check for a name conflict
+            if (jsonData['ENTITY_TYPE'] == 'PERSON' and 'NAME_ORG' in name) or (jsonData['ENTITY_TYPE'] != 'PERSON' and 'NAME_LAST' in name):
+                orgPersonNameConflict = True
+
             #--duplicate this name segment for original script version if supplied
             originalScriptName = getValue(nameValue, 'OriginalScriptName')
             if originalScriptName:
@@ -279,19 +289,51 @@ def g2Mapping(masterRecord, recordType):
             
     if thisList:
         jsonData['NAMES'] = thisList
+    if orgPersonNameConflict:
+        print('warning: person and org names on record %s' % jsonData['RECORD_ID'])
     
     #--dates
+    # <DateType Id="1" RecordType="Person" name="Date of Birth"/>
+    # <DateType Id="2" RecordType="Person" name="Deceased Date"/>
+    # <DateType Id="3" RecordType="Entity" name="Date of Registration"/>
     thisList = []
     for dateRecord in masterRecord.findall('DateDetails/Date'):
-        dateType = convertDateType(dateRecord.attrib['DateType'])
+
+        dateType = dateRecord.attrib['DateType']
+        if dateType == 'Date of Birth':
+            dateType = 'DATE_OF_BIRTH'
+        elif dateType == 'Deceased Date':
+            dateType = 'DATE_OF_DEATH'
+        elif dateType == 'Date of Registration':
+            dateType = 'REGISTRATION_DATE'
+
         for dateValue in dateRecord.findall('DateValue'):
-            thisDate = concatDateParts(getAttr(dateValue, 'Day'), getAttr(dateValue, 'Month'), getAttr(dateValue, 'Year'))
+            day = getAttr(dateValue, 'Day')
+            month = getAttr(dateValue, 'Month')
+            year = getAttr(dateValue, 'Year')
+            thisDate = concatDateParts(day, month, year)
             if dateType == 'DATE_OF_BIRTH':
-                thisList.append({dateType: thisDate})
-                updateStat('ATTRIBUTE', 'DATE_OF_BIRTH')
+                outputFormat = '%Y-%m-%d'
+                if not day and not month:
+                    updateStat('DOB_DATA', 'year only', thisDate)
+                elif year and month and not day:
+                    updateStat('DOB_DATA', 'year/month only', thisDate)
+                elif month and day and not year:
+                    updateStat('DOB_DATA', 'month/day only', thisDate)
+                else:
+                    updateStat('DOB_DATA', 'full', thisDate)
+
+                formattedDate = mappingLib.formatDate(thisDate)
+                if formattedDate:
+                    thisList.append({dateType: formattedDate})
+                    updateStat('ATTRIBUTE', 'DATE_OF_BIRTH')
+                    if year and month:
+                        ckDobList.append(mappingLib.formatDate(formattedDate, '%Y-%m'))
+                    if year:
+                        ckDobList.append(mappingLib.formatDate(formattedDate, '%Y'))
             else:
                 jsonData[dateType] = thisDate
-                updateStat('USEFUL_DATA', dateType)
+                updateStat('OTHER_DATA', dateType)
     if thisList:
         jsonData['DATES'] = thisList
             
@@ -312,8 +354,9 @@ def g2Mapping(masterRecord, recordType):
         addrCountry = getValue(addrRecord, 'AddressCountry')
         if addrCountry:
             address['ADDR_COUNTRY'] = addrCountry
-            if addrCountry.lower() in isoCountries: #--also map the code for matching
-                isoCountriesList.append(isoCountries[addrCountry.lower()])
+            isoCountry = mappingLib.isoCountryCode(addrCountry)
+            if isoCountry: #--also map the code for matching
+                isoCountriesList.append(isoCountry)
 
         if len(address) == 1 and list(address.keys())[0] == 'ADDR_COUNTRY':
             onlyCountryList.append(address['ADDR_COUNTRY'])
@@ -343,8 +386,9 @@ def g2Mapping(masterRecord, recordType):
         addrCountry = getValue(addrRecord, 'AddressCountry')
         if addrCountry:
             address['ADDR_COUNTRY'] = addrCountry
-            if addrCountry.lower() in isoCountries: #--also map the code for matching
-                isoCountriesList.append(isoCountries[addrCountry.lower()])
+            isoCountry = mappingLib.isoCountryCode(addrCountry)
+            if isoCountry: #--also map the code for matching
+                isoCountriesList.append(isoCountry)
         if address:
             if len(address) == 1 and list(address.keys())[0] == 'ADDR_COUNTRY':
                 onlyCountryList.append(address['ADDR_COUNTRY'])
@@ -376,7 +420,6 @@ def g2Mapping(masterRecord, recordType):
 
             attrType1 = None
             attrType2 = None
-            attrType3 = None
             countryCheck = 0
 
             if idType.upper() == 'SOCIAL SECURITY NO.':
@@ -426,13 +469,13 @@ def g2Mapping(masterRecord, recordType):
 
                     #--try for country code
                     if countryCheck:
-                        isoCode = idNoteParse(idNotes, isoCountries)
+                        isoCode = idNoteParse(idNotes, 'country')
                         if isoCode:
                             isoCountriesList.append(isoCode)
 
                     #--try for US state code
                     if countryCheck == 2 and (isoCode in ('USA', 'US') or not isoCode):
-                        isoCode = idNoteParse(idNotes, isoStates)
+                        isoCode = idNoteParse(idNotes, 'state')
 
                 #--create the identity structure
                 idDict = {}
@@ -459,19 +502,20 @@ def g2Mapping(masterRecord, recordType):
         thisList.append({'PLACE_OF_BIRTH': birthPlace})
         updateStat('ATTRIBUTE', 'PLACE_OF_BIRTH')
 
-        if birthPlace.lower() in isoCountries:
+        isoCountry = mappingLib.isoCountryCode(birthPlace)
+        if isoCountry:
             #thisList.append({'POB_COUNTRY_CODE': isoCountries[birthPlace.lower()]})
-            isoCountriesList.append(isoCountries[birthPlace.lower()])
+            isoCountriesList.append(isoCountry)
         elif ',' in birthPlace:
             countryName = birthPlace[birthPlace.find(',')+1:].strip()
-            if countryName.lower() in isoCountries: #--also map the code for matching
-                #thisList.append({'POB_COUNTRY_CODE': isoCountries[countryName.lower()]})
-                isoCountriesList.append(isoCountries[countryName.lower()])
+            isoCountry = mappingLib.isoCountryCode(countryName)
+            if isoCountry:
+                isoCountriesList.append(isoCountry)
             else:
                 countryName = birthPlace[birthPlace.rfind(',')+1:].strip()
-                if countryName.lower() in isoCountries: #--also map the code for matching
-                    #thisList.append({'POB_COUNTRY_CODE': isoCountries[countryName.lower()]})
-                    isoCountriesList.append(isoCountries[countryName.lower()])
+                isoCountry = mappingLib.isoCountryCode(countryName)
+                if isoCountry:
+                    isoCountriesList.append(isoCountry)
 
     for countryRecord in masterRecord.findall('CountryDetails/Country'):
         countryType = countryRecord.attrib['CountryType']
@@ -490,9 +534,10 @@ def g2Mapping(masterRecord, recordType):
             else:
                 jsonData[countryType + (('_' + str(itemNum)) if itemNum > 0 else '')] = countryName
                 itemNum += 1
-                updateStat('USEFUL_DATA', countryType)
-            if countryName.lower() in isoCountries:
-                isoCountriesList.append(isoCountries[countryName.lower()])
+                updateStat('OTHER_DATA', countryType)
+            isoCountry = mappingLib.isoCountryCode(countryName)
+            if isoCountry:
+                isoCountriesList.append(isoCountry)
 
     if thisList:
         jsonData['COUNTRIES'] = thisList
@@ -512,7 +557,7 @@ def g2Mapping(masterRecord, recordType):
             description += (' | ' if description2 else '') + description2
             description += (' | ' if description3 else '') + description3
             jsonData["Description%s" % itemNum] = description
-            updateStat('USEFUL_DATA', 'DESCRIPTIONS')
+            updateStat('OTHER_DATA', 'DESCRIPTIONS')
 
     #--roles
     for roleRecord in masterRecord.findall('RoleDetail/Roles'):
@@ -528,7 +573,7 @@ def g2Mapping(masterRecord, recordType):
             if thruDate:
                 thisRole += ' To ' + thruDate
             jsonData[roleType + str(itemNum)] = thisRole
-            updateStat('USEFUL_DATA', 'ROLES')
+            updateStat('OTHER_DATA', 'ROLES')
 
     #--references
     itemNum = 0
@@ -536,7 +581,7 @@ def g2Mapping(masterRecord, recordType):
         itemNum += 1
         referenceName = referenceCodes[getValue(referenceRecord)]
         jsonData["Reference%s" % itemNum] = referenceName
-        updateStat('USEFUL_DATA', 'REFERENCES')
+        updateStat('OTHER_DATA', 'REFERENCES')
         
     #--sources
     if False:  #--disabled to keep reports smaller
@@ -567,6 +612,7 @@ def g2Mapping(masterRecord, recordType):
                 thisRecord = {}
                 #thisRecord[relType + '_GROUP_ASSOCIATION_TYPE'] = 'ORG'
                 thisRecord[relType + '_GROUP_ASSOCIATION_ORG_NAME'] = entityNames[relationship['id']]
+                ckGroupAssnList.append(entityNames[relationship['id']])
                 thisList.append(thisRecord)
                 updateStat('GROUP_ASSOCIATIONS', relType)
     if thisList:
@@ -580,35 +626,32 @@ def g2Mapping(masterRecord, recordType):
         jsonData['ISO_COUNTRY_CODES'] = thisList
 
     #--create composite keys
-    if False:
+    if True:
+        ckNameList = set(ckNameList)
         ckDobList = set(ckDobList)
-        ckCntryList = set(ckCntryList)
-        ckCntryList = set(ckCntryList)
-        ckYobList = set(ckYobList)
+        ckDunsList = set(ckDunsList)
+        ckGroupAssnList = set(ckGroupAssnList)
+        ckCntryList = set(isoCountriesList)
         if ckDobList or ckCntryList: 
             thisList = []
-
-            for nameDict in jsonData['NAMES']:
-                nameLast = nameDict['NAME_LAST'] if 'NAME_LAST' in nameDict else ''
-                nameFull = nameDict['NAME_LAST'] if 'NAME_LAST' in nameDict else ''
-                if 'NAME_FIRST' in nameDict and nameDict['NAME_FIRST']:
-                    nameFull += ' ' + nameDict['NAME_FIRST']
-                if 'NAME_MIDDLE' in nameDict and nameDict['NAME_MIDDLE']:
-                    nameFull += ' ' + nameDict['NAME_MIDDLE']
-                if not nameFull:
-                    continue
-
-                nameFullKey = '|'.join(sorted([x.upper() for x in nameFull.upper().replace('.',' ').replace(',',' ').split()]))
-                nameLastKey = '|'.join(sorted([x.upper() for x in nameLast.upper().replace('.',' ').replace(',',' ').split()]))
+            for nameFull in ckNameList:
+                nameKey = mappingLib.makeNameKey(nameFull, jsonData['ENTITY_TYPE'])
                 for dobKey in ckDobList:
-                    thisList.append({"FF_NAME_DOB": nameFullKey + '|' + dobKey})
+                    thisList.append({"CK_NAME_DOB": nameKey + '|' + dobKey})
+                    updateStat('COMPOSITE_KEYS', 'CK_NAME_DOB')
                     for cntryKey in ckCntryList:
-                        thisList.append({"FF_NAME_DOB_CNTRY": nameFullKey + '|' + dobKey + '|' + cntryKey})
-                        #thisList.append({"CK_LNAME_DOB_CNTRY": nameFullKey + '|' + dobKey + '|' + cntryKey})
-                        #if nameLastKey:
-                        #    thisList.append({"CK_LNAME_DOB_CNTRY": nameLastKey + '|' + dobKey + '|' + cntryKey})
-                #for cntryKey in ckCntryList:
-                    #thisList.append({"CK_NAME_CNTRY": nameFullKey + '|' + cntryKey})
+                        thisList.append({"CK_NAME_DOB_CNTRY": nameKey + '|' + dobKey + '|' + cntryKey})
+                        updateStat('COMPOSITE_KEYS', 'CK_NAME_DOB_CNTRY')
+                for cntryKey in ckCntryList:
+                    thisList.append({"CK_NAME_CNTRY": nameKey + '|' + cntryKey})
+                    updateStat('COMPOSITE_KEYS', 'CK_NAME_CNTRY')
+                for dunsNumber in ckDunsList:
+                    thisList.append({"CK_NAME_DUNS": nameKey + '|' + dunsNumber})
+                    updateStat('COMPOSITE_KEYS', 'CK_NAME_DUNS')
+                for orgName in ckGroupAssnList:
+                    orgNameKey = mappingLib.makeNameKey(orgName, 'ORGANIZATION')
+                    thisList.append({"CK_NAME_ORGNAME": nameKey + '|' + orgNameKey})
+                    updateStat('COMPOSITE_KEYS', 'CK_NAME_ORGNAME')
 
             if thisList:
                 jsonData['COMPOSITE_KEYS'] = thisList
@@ -627,21 +670,48 @@ def g2Mapping(masterRecord, recordType):
 if __name__ == "__main__":
     appPath = os.path.dirname(os.path.abspath(sys.argv[0]))
 
+    global shutDown
+    shutDown = False
+    signal.signal(signal.SIGINT, signal_handler)
+    procStartTime = time.time()
+
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('-i', '--inputFile', dest='inputFile', type=str, default=None, help='A Dow Jones xml file for PFA or HRF.')
-    argparser.add_argument('-o', '--outputFile', dest='outputFile', type=str, help='output filename, defaults to input file name with a .json extension.')
-    argparser.add_argument('-d', '--dataSource', dest='dataSource', type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
-    argparser.add_argument('-nr', '--noRelationships', dest='noRelationships', action='store_true', default = False, help='do not create disclosed realtionships, an attribute will still be stored')
-    argparser.add_argument('-c', '--isoCountrySize', dest='isoCountrySize', type=int, default=3, help='ISO country code size. Either 2 or 3, default=3.')
-    argparser.add_argument('-s', '--statisticsFile', dest='statisticsFile', type=str, help='optional statistics filename in json format.')
+    argparser.add_argument('-m', '--mapping_library_path', default=os.getenv('mapping_library_path'.upper(), None), type=str, help='path to the mapping functions library files.')
+    argparser.add_argument('-i', '--input_file', default=os.getenv('input_file'.upper(), None), type=str, help='A Dow Jones xml file for PFA or HRF.')
+    argparser.add_argument('-o', '--output_file', default=os.getenv('output_file'.upper(), None), type=str, help='output filename, defaults to input file name with a .json extension.')
+    argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
+    argparser.add_argument('-c', '--iso_country_size', default=os.getenv('iso_country_size'.upper(), 3), type=int, help='ISO country code size. Either 2 or 3, default=3.')
+    argparser.add_argument('-s', '--statistics_file', default=os.getenv('statistics_file'.upper(), None), type=str, help='optional statistics filename in json format.')
+    argparser.add_argument('-nr', '--no_relationships', default=os.getenv('no_relationships'.upper(), False), action='store_true', help='do not create disclosed realtionships, an attribute will still be stored')
     args = argparser.parse_args()
-    inputFile = args.inputFile
-    outputFile = args.outputFile
-    dataSource = args.dataSource
-    noRelationships = args.noRelationships
-    isoCountrySize = args.isoCountrySize
-    statisticsFile = args.statisticsFile
+    mappingLibraryPath = args.mapping_library_path
+    inputFile = args.input_file
+    outputFile = args.output_file
+    dataSource = args.data_source
+    isoCountrySize = args.iso_country_size
+    statisticsFile = args.statistics_file
+    noRelationships = args.no_relationships
     
+    #--initialize the mapping library
+    if not (mappingLibraryPath):
+        print('')
+        print('Please supply the path to the mapping library files.')
+        print('')
+        sys.exit(1)
+    mappingLibraryPath = os.path.abspath(mappingLibraryPath)
+    mappingFunctionsFile = mappingLibraryPath + os.path.sep + 'mapping_functions.py'
+    mappingStandardsFile = mappingLibraryPath + os.path.sep + 'mapping_standards.json'
+    if not os.path.exists(mappingFunctionsFile) or not os.path.exists(mappingStandardsFile):
+        print('')
+        print('mapping_functions.py or mapping_standards.json missing from %s.' % mappingLibraryPath)
+        print('')
+        sys.exit(1)
+    sys.path.insert(1, mappingLibraryPath)
+    from mapping_functions import mapping_functions
+    mappingLib = mapping_functions(mappingStandardsFile)
+    if not mappingLib.initialized:
+        sys.exit(1)
+
     if not dataSource and 'PFA' in inputFile.upper():
         dataSource = 'DJ-PFA'
     elif not dataSource and 'HRF' in inputFile.upper():
@@ -649,7 +719,7 @@ if __name__ == "__main__":
 
     if not dataSource or dataSource.upper() not in ('DJ-PFA', 'DJ-HRF'):
         print('')
-        print('must specify either DJ-PFA or DJ-HRF as the data source with -d')
+        print('Please specify either DJ-PFA or DJ-HRF as the data source')
         print('')
         sys.exit(1)
     else:
@@ -657,13 +727,13 @@ if __name__ == "__main__":
         
     if not inputFile:
         print('')
-        print('must select a dow jones xml input file with -i')
+        print('Please select a dow jones xml input file')
         print('')
         sys.exit(1)
 
     if not os.path.exists(inputFile):
         print('')
-        print('input file %s not found!' % inputFile)
+        print('Input file %s not found!' % inputFile)
         print('')
         sys.exit(1)
     
@@ -682,54 +752,9 @@ if __name__ == "__main__":
     longNameMiddleCnt = 0
     longAddrLineCnt = 0
     
-    #--need month conversions
-    monthNum = {}
-    monthNum['JAN'] = '01'
-    monthNum['FEB'] = '02'
-    monthNum['MAR'] = '03'
-    monthNum['APR'] = '04'
-    monthNum['MAY'] = '05'
-    monthNum['JUN'] = '06'
-    monthNum['JUL'] = '07'
-    monthNum['AUG'] = '08'
-    monthNum['SEP'] = '09'
-    monthNum['OCT'] = '10'
-    monthNum['NOV'] = '11'
-    monthNum['DEC'] = '12'
-            
-    #--need conversion table for country codes
-    if isoCountrySize == 3:
-        isoCountryFile = 'isoCountries3.json'
-    elif isoCountrySize == 2:
-        isoCountryFile = 'isoCountries2.json'
-    else:
-        print('')
-        print('The ISO Country size must be 2 or 3.')
-        print('')
-        sys.exit(1)
-    isoCountryFile = appPath + os.path.sep + isoCountryFile
-    if not os.path.exists(isoCountryFile):
-        print('')
-        print('File %s is missing!' % (isoCountryFile))
-        print('')
-        sys.exit(1)
-    try: isoCountries = json.load(open(isoCountryFile,'r'))
-    except json.decoder.JSONDecodeError as err:
-        print('')
-        print('JSON error %s in %s' % (err, isoCountryFile))
-        print('')
-        sys.exit(1)
-    isoStatesFile = appPath + os.path.sep + 'isoStates.json'
-    if not os.path.exists(isoStatesFile):
-        print('')
-        print('File %s is missing!' % (isoCountriesFile))
-        print('')
-        sys.exit(1)
-    try: isoStates = json.load(open(isoStatesFile,'r'))
-    except json.decoder.JSONDecodeError as err:
-        print('')
-        print('JSON error %s in %s' % (err, isoStatesFile))
-        print('')
+    #--initialize the mapping library
+    mappingLib = mapping_functions('mapping_standards.json')
+    if not mappingLib.initialized:
         sys.exit(1)
 
     #--initialize code dictionaries
@@ -753,15 +778,8 @@ if __name__ == "__main__":
 
             if node.tag == 'CountryList':
                 print('loading %s ...' % node.tag) 
-                notfound = 0
-                found = 0
                 for record in node.findall('CountryName'):
                     countryCodes[getAttr(record, 'code')] = getAttr(record, 'name')
-                    if not getAttr(record, 'name').lower() in isoCountries:
-                        #print(getAttr(record, 'name'))
-                        notfound += 1
-                    else:
-                        found += 1
                 node.clear()
                 
             elif node.tag == 'Description1List':
@@ -873,4 +891,3 @@ if __name__ == "__main__":
         print('')
     
     sys.exit(0)
-   

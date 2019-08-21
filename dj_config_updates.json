@@ -48,13 +48,31 @@ addToNamehash {"feature": "COUNTRY", "element": "CODE"}
 deleteAttribute {"attribute": "GROUP_ASSOCIATION_TYPE"}
 addAttribute {"attribute": "GROUP_ASSOCIATION_TYPE", "class": "ATTRIBUTE", "feature": "GROUP_ASSOCIATION", "element": "TYPE", "required": "No", "default": "(org)", "advanced": "No", "internal": "No"}
 
+#--optional composite keys
+addFeature {"feature": "CK_NAME_DOB_CNTRY", "class": "OTHER", "behavior": "FF", "anonymize": "No", "candidates": "Yes", "derived": "Yes", "standardize": "", "expression": "", "comparison": "", "elementList": [{"element": "EXPRESSION", "expressed": "No", "compared": "No"}]}
+addAttribute {"attribute": "CK_NAME_DOB_CNTRY", "class": "OTHER", "feature": "CK_NAME_DOB_CNTRY", "element": "EXPRESSION", "required": "Yes", "default": "", "advanced": "Yes", "internal": "Yes"}
+
+addFeature {"feature": "CK_NAME_DOB", "class": "OTHER", "behavior": "FF", "anonymize": "No", "candidates": "Yes", "derived": "Yes", "standardize": "", "expression": "", "comparison": "", "elementList": [{"element": "EXPRESSION", "expressed": "No", "compared": "No"}]}
+addAttribute {"attribute": "CK_NAME_DOB", "class": "OTHER", "feature": "CK_NAME_DOB", "element": "EXPRESSION", "required": "Yes", "default": "", "advanced": "Yes", "internal": "Yes"}
+
+addFeature {"feature": "CK_NAME_CNTRY", "class": "OTHER", "behavior": "FF", "anonymize": "No", "candidates": "Yes", "derived": "Yes", "standardize": "", "expression": "", "comparison": "", "elementList": [{"element": "EXPRESSION", "expressed": "No", "compared": "No"}]}
+addAttribute {"attribute": "CK_NAME_CNTRY", "class": "OTHER", "feature": "CK_NAME_CNTRY", "element": "EXPRESSION", "required": "Yes", "default": "", "advanced": "Yes", "internal": "Yes"}
+
+addFeature {"feature": "CK_NAME_ORGNAME", "class": "OTHER", "behavior": "FF", "anonymize": "No", "candidates": "Yes", "derived": "Yes", "standardize": "", "expression": "", "comparison": "", "elementList": [{"element": "EXPRESSION", "expressed": "No", "compared": "No"}]}
+addAttribute {"attribute": "CK_NAME_ORGNAME", "class": "OTHER", "feature": "CK_NAME_ORGNAME", "element": "EXPRESSION", "required": "Yes", "default": "", "advanced": "Yes", "internal": "Yes"}
+
+addFeature {"feature": "CK_NAME_DUNS", "class": "OTHER", "behavior": "FF", "anonymize": "No", "candidates": "Yes", "derived": "Yes", "standardize": "", "expression": "", "comparison": "", "elementList": [{"element": "EXPRESSION", "expressed": "No", "compared": "No"}]}
+addAttribute {"attribute": "CK_NAME_DUNS", "class": "OTHER", "feature": "CK_NAME_DUNS", "element": "EXPRESSION", "required": "Yes", "default": "", "advanced": "Yes", "internal": "Yes"}
+
 #--best practice for watch list screening - make name and address used for candidates
+#--caveat: minor performance impact and improvement
 #setFeature {"feature": "NAME", "candidates": "Yes"}
 #setFeature {"feature": "ADDRESS", "candidates": "Yes"}
 #setFeature {"feature": "GROUP_ASSOCIATION", "candidates": "Yes"}
 
 #--best practice for watch list screening - turn off distinct names 
-#--caveat: major performance effect and improvement
+#--caveat: potential for false positives as lower quality aka matches are also reported: If "Andy Jones" and "Alex Jones" both have 
+#-- an aka of "A jones", the lower quality name match is not considered when distinct is on, but is a match when distinct is off!
 #setDistinct Off
 
 save

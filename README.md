@@ -2,14 +2,14 @@
 
 ## Overview
 
-The [dj2json.py](dj2json.py) python script converts Dow Jones Watch list files to json files ready to load into senzing.  This includes their ...
+The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list files to json files ready to load into senzing.  This includes the following databases ...
 - Risk and Compliance database (PFA) 
 - High Risk File or (HRF)
 
 If you subscribe to the either Dow Jones Risk and Compliance database, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the 
-[djConfigUpdates.json](djConfigUpdates.json) file and are applied with the [G2ConfigTool.py](G2ConfigTool.py) contained in this project.
+[djConfigUpdates.json](dj_config_updates.json) file and are applied with the [G2ConfigTool.py](G2ConfigTool.py) contained in this project.
 
 Usage:
 ```console
@@ -100,9 +100,7 @@ Configuration updates include:
     - CK_NAME_ORGNAME
 
 *WARNING:* the following settings are commented out as they affect performance and quality. Only use them if you understand and are OK with the effects.
-- sets **NAME** and **ADDRESS** to be used for candidates. Normally just their hashes are used to find candidates.  The effect is performance is slightly degraded.
-- set **GROUP_ASSOCIATION** feature to be used for candidates.
-
+- sets **NAME**, **ADDRESS** and **GROUP_ASSOCIATION** to be used for candidates. Normally just their hashes are used to find candidates.  The effect is performance is slightly degraded.
 - set **distinct** off.  Normally this is on to prevent lower strength AKAs to cause matches as only the most distinct names are considered. The effect is more potential false positives.
 
 ### Running the mapper

@@ -65,7 +65,7 @@ Place the the following files on a directory of your choice ...
 
 *Note:* This only needs to be performed one time! In fact you may want to add these configuration updates to a master configuration file for all your data sources.
 
-Update the G2ConfigTool.py program file on the /opt/senzing/g2/python directory with this one ... [G2ConfigTool.py](G2ConfigTool.py)
+**If you are on version G2 API version 1.10 or prior**, update the G2ConfigTool.py program file on the /opt/senzing/g2/python directory with this one ... [G2ConfigTool.py](G2ConfigTool.py)
 
 Then from the /opt/senzing/g2/python directory ...
 ```console

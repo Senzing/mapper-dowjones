@@ -9,6 +9,7 @@ import G2Paths
 import argparse
 from shutil import copyfile
 from collections import OrderedDict
+import traceback
 
 try: import configparser
 except: import ConfigParser as configparser
@@ -78,7 +79,10 @@ class G2CmdShell(cmd.Cmd):
                 if ans in ['y','Y', 'yes', 'YES']:
                     break
             except TypeError as ex:
-                print("ERROR: " + str(ex))
+                printWithNewLines("ERROR: " + str(ex))
+                type_, value_, traceback_ = sys.exc_info()
+                for item in traceback.format_tb(traceback_):
+                    printWithNewLines(item)
 
     def preloop(self):
 
@@ -352,7 +356,7 @@ class G2CmdShell(cmd.Cmd):
                 parmData['ID'] = maxID + 1 if maxID >= 1000 else 1000
                 
             newRecord = {}
-            newRecord['DSRC_ID'] = parmData['ID'] 
+            newRecord['DSRC_ID'] = int(parmData['ID']) 
             newRecord['DSRC_CODE'] = parmData['DATASOURCE']
             newRecord['DSRC_DESC'] = parmData['DATASOURCE']
             newRecord['DSRC_RELY'] = 1
@@ -438,7 +442,7 @@ class G2CmdShell(cmd.Cmd):
                 parmData['ID'] = maxID + 1 if maxID >=1000 else 1000
     
             newRecord = {}
-            newRecord['ECLASS_ID'] = parmData['ID']
+            newRecord['ECLASS_ID'] = int(parmData['ID'])
             newRecord['ECLASS_CODE'] = parmData['ENTITYCLASS']
             newRecord['ECLASS_DESC'] = parmData['ENTITYCLASS']
             newRecord['RESOLVE'] = parmData['RESOLVE'].title() if 'RESOLVE' in parmData else 'Yes'
@@ -523,7 +527,7 @@ class G2CmdShell(cmd.Cmd):
                 parmData['ID'] = maxID + 1 if maxID >=1000 else 1000
     
             newRecord = {}
-            newRecord['ETYPE_ID'] = parmData['ID']
+            newRecord['ETYPE_ID'] = int(parmData['ID'])
             newRecord['ETYPE_CODE'] = parmData['ENTITYTYPE']
             newRecord['ETYPE_DESC'] = parmData['ENTITYTYPE']
             newRecord['ECLASS_ID'] = eclassRecord['ECLASS_ID']
@@ -850,7 +854,7 @@ class G2CmdShell(cmd.Cmd):
                     maxID = self.cfgData['G2_CONFIG']['CFG_FTYPE'][i]['FTYPE_ID']
     
             if 'ID' in parmData: 
-                ftypeID = parmData['ID']
+                ftypeID = int(parmData['ID'])
             else:
                 ftypeID = maxID + 1 if maxID >=1000 else 1000
             
@@ -933,7 +937,7 @@ class G2CmdShell(cmd.Cmd):
     
             #--insert the feature
             newRecord = {}
-            newRecord['FTYPE_ID'] = ftypeID
+            newRecord['FTYPE_ID'] = int(ftypeID)
             newRecord['FTYPE_CODE'] = parmData['FEATURE']
             newRecord['FTYPE_DESC'] = parmData['FEATURE']
             newRecord['FCLASS_ID'] = fclassID
@@ -1408,7 +1412,7 @@ class G2CmdShell(cmd.Cmd):
                 parmData['ID'] = maxID + 1 if maxID >= 2000 else 2000
     
             newRecord = {}
-            newRecord['ATTR_ID'] = parmData['ID']
+            newRecord['ATTR_ID'] = int(parmData['ID'])
             newRecord['ATTR_CODE'] = parmData['ATTRIBUTE']
             newRecord['ATTR_CLASS'] = parmData['CLASS']
             newRecord['FTYPE_CODE'] = parmData['FEATURE']
@@ -1521,7 +1525,7 @@ class G2CmdShell(cmd.Cmd):
                     maxID.append(self.cfgData['G2_CONFIG']['CFG_FELEM'][i]['FELEM_ID'])
 
             if 'ID' in parmData: 
-                felemID = parmData['ID']
+                felemID = int(parmData['ID'])
             else:
                 felemID = max(maxID) + 1 if max(maxID) >=1000 else 1000
 
@@ -1621,7 +1625,7 @@ class G2CmdShell(cmd.Cmd):
                             maxID = self.cfgData['G2_CONFIG']['CFG_FELEM'][i]['FELEM_ID']
         
                     if 'ID' in parmData: 
-                        felemID = parmData['ID']
+                        felemID = int(parmData['ID'])
                     else:
                         felemID = maxID + 1 if maxID >=1000 else 1000
     

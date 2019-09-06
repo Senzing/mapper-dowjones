@@ -57,10 +57,10 @@ Place the the following files on a directory of your choice ...
 - [dj_config_updates.json](dj_config_updates.json)
 
 *Note: Since the mapper-base project referenced above is required by this mapper, it is necessary to place them in a common directory structure like so ...*
-
+```Console
 /senzing/mappers/mapper-base
-/senzing/mappers/mapper-dj         <--
-
+/senzing/mappers/mapper-dj
+```
 ### Configuring Senzing
 
 *Note:* This only needs to be performed one time! In fact you may want to add these configuration updates to a master configuration file for all your data sources.

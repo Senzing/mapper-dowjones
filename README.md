@@ -9,7 +9,7 @@ The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list fil
 If you subscribe to the either Dow Jones Risk and Compliance database, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the 
-[djConfigUpdates.json](dj_config_updates.json) file and are applied with the [G2ConfigTool.py](G2ConfigTool.py) contained in this project.
+[dj-config-updates.json](dj_config_updates.json) file and are applied with the [G2ConfigTool.py](G2ConfigTool.py) contained in this project.
 
 Usage:
 ```console
@@ -57,6 +57,7 @@ Place the the following files on a directory of your choice ...
 - [dj_config_updates.json](dj_config_updates.json)
 
 *Note: Since the mapper-base project referenced above is required by this mapper, it is necessary to place them in a common directory structure like so ...*
+
 /senzing/mappers/mapper-base
 /senzing/mappers/mapper-dj         <--
 

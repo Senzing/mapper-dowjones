@@ -25,8 +25,6 @@ optional arguments:
   -o OUTPUT_FILE, --output_file OUTPUT_FILE
                         output filename, defaults to input file name with a
                         .json extension.
-  -b BASE_LIBRARY_PATH, --base_library_path BASE_LIBRARY_PATH
-                        path to the base library files.
   -l LOG_FILE, --log_file LOG_FILE
                         optional statistics filename (json format).
   -d DATA_SOURCE, --data_source DATA_SOURCE
@@ -61,6 +59,11 @@ Place the the following files on a directory of your choice ...
 /senzing/mappers/mapper-base
 /senzing/mappers/mapper-dowjones  <--
 ```
+You will also need to set the PYTHONPATH to where the base mapper is as follows ...
+```Console
+export PYTHONPATH=$PYTHONPATH:<path to mapper-base project>
+```
+
 ### Configuring Senzing
 
 *Note:* This only needs to be performed one time! In fact you may want to add these configuration updates to a master configuration file for all your data sources.
@@ -98,7 +101,7 @@ It is good practice to keep a history of these files on a directory where you wi
 
 Second, run the mapper. Example usage:
 ```console
-python3 dj_mapper.py -i ./input/PFA2_201303312200_F.xml -o ./output/PFA2_201303312200_F.json -d ../mapper-base -l pfa_stats.json 
+python3 dj_mapper.py -i ./input/PFA2_201303312200_F.xml -o ./output/PFA2_201303312200_F.json -l pfa_stats.json 
 ```
 The output file defaults to the same name and location as the input file and a .json extension is added.
 - Add the -d parameter if you have renamed the input file so that neither PFA nor HRF is in the file name.

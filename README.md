@@ -2,20 +2,20 @@
 
 ## Overview
 
-The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list files to json files ready to load into senzing.  This includes the following databases ...
+The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list files to json files ready to load into Senzing.  This includes the following databases ...
 - Risk and Compliance database (PFA) 
 - High Risk File or (HRF)
 
 If you subscribe to the either Dow Jones Risk and Compliance database, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the 
-[dj-config-updates.json](dj_config_updates.json) file and are applied with the [G2ConfigTool.py](G2ConfigTool.py) contained in this project.
+[dj_config_updates.json](dj_config_updates.json) file.
 
 Usage:
 ```console
 python dj_mapper.py --help
 usage: dj_mapper.py [-h] [-i INPUT_FILE] [-o OUTPUT_FILE]
-                    [-b BASE_LIBRARY_PATH] [-l LOG_FILE] [-d DATA_SOURCE]
+                    [-l LOG_FILE] [-d DATA_SOURCE]
                     [-nr]
 
 optional arguments:
@@ -59,18 +59,16 @@ Place the the following files on a directory of your choice ...
 /senzing/mappers/mapper-base
 /senzing/mappers/mapper-dowjones  <--
 ```
-You will also need to set the PYTHONPATH to where the base mapper is as follows ...
+You will also need to set the PYTHONPATH to where the base mapper is as follows ... (assumuing the directory structure above)
 ```Console
-export PYTHONPATH=$PYTHONPATH:<path to mapper-base project>
+export PYTHONPATH=$PYTHONPATH:/senzing/mappers/mapper-base
 ```
 
 ### Configuring Senzing
 
 *Note:* This only needs to be performed one time! In fact you may want to add these configuration updates to a master configuration file for all your data sources.
 
-**If you are on version G2 API version 1.10 or prior**, update the G2ConfigTool.py program file on the /opt/senzing/g2/python directory with this one ... [G2ConfigTool.py](G2ConfigTool.py)
-
-Then from the /opt/senzing/g2/python directory ...
+From the /opt/senzing/g2/python directory ...
 ```console
 python3 G2ConfigTool.py <path-to-file>/dj_config_updates.json
 ```

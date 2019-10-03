@@ -11,6 +11,18 @@ import json
 import random
 import re
 
+#--import the base mapper library and variants
+try: 
+    import base_mapper
+except: 
+    print('')
+    print('Please export PYTHONPATH=$PYTHONPATH:<path to mapper-base project>')
+    print('')
+    sys.exit(1)
+baseLibrary = base_mapper.base_library(os.path.abspath(base_mapper.__file__).replace('base_mapper.py','base_variants.json'))
+if not baseLibrary.initialized:
+    sys.exit(1)
+
 #----------------------------------------
 def pause(question='PRESS ENTER TO CONTINUE ...'):
     """ pause for debug purposes """
@@ -601,42 +613,21 @@ if __name__ == "__main__":
     shutDown = False
     signal.signal(signal.SIGINT, signal_handler)
     procStartTime = time.time()
+    progressInterval = 10000
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument('-i', '--input_file', default=os.getenv('input_file'.upper(), None), type=str, help='A Dow Jones xml file for PFA or HRF.')
     argparser.add_argument('-o', '--output_file', default=os.getenv('output_file'.upper(), None), type=str, help='output filename, defaults to input file name with a .json extension.')
-    argparser.add_argument('-b', '--base_library_path', default=os.getenv('base_library_path'.upper(), None), type=str, help='path to the base library files.')
     argparser.add_argument('-l', '--log_file', default=os.getenv('log_file'.upper(), None), type=str, help='optional statistics filename (json format).')
     argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
-    argparser.add_argument('-nr', '--no_relationships', default=os.getenv('no_relationships'.upper(), False), action='store_true', help='do not create disclosed relationships, an attribute will still be stored')
+    argparser.add_argument('-nr', '--no_relationships', default=False, action='store_true', help='do not create disclosed relationships, an attribute will still be stored')
     args = argparser.parse_args()
     inputFileName = args.input_file
     outputFileName = args.output_file
-    baseLibraryPath = args.base_library_path
     logFile = args.log_file
     dataSource = args.data_source
     noRelationships = args.no_relationships
     
-    #--initialize the base library
-    if not (baseLibraryPath):
-        print('')
-        print('Please supply the path to the base library project.')
-        print('')
-        sys.exit(1)
-    baseLibraryPath = os.path.abspath(baseLibraryPath)
-    baseLibraryFile = baseLibraryPath + os.path.sep + 'base_mapper.py'
-    baseVariantFile = baseLibraryPath + os.path.sep + 'base_variants.json'
-    if not os.path.exists(baseLibraryFile) or not os.path.exists(baseVariantFile):
-        print('')
-        print('standardization library files missing from %s.' % baseLibraryPath)
-        print('')
-        sys.exit(1)
-    sys.path.insert(1, baseLibraryPath)
-    from base_mapper import base_library
-    baseLibrary = base_library(baseVariantFile)
-    if not baseLibrary.initialized:
-        sys.exit(1)
-
     #--default and validate the data source
     if not dataSource and 'PFA' in inputFileName.upper():
         dataSource = 'DJ-PFA'
@@ -814,7 +805,7 @@ if __name__ == "__main__":
                 break
 
             recordCnt += 1 
-            if recordCnt % 10000 == 0:
+            if recordCnt % progressInterval == 0:
                 print('%s rows processed' % recordCnt)
         
     outputFileHandle.close()

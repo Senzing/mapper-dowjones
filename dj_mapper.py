@@ -515,8 +515,7 @@ def g2Mapping(masterRecord, recordType):
                 updateStat('OTHER', attributeType, countryName)
  
     if thisList1:
-        jsonData['COUNTRIES'] = thisList
-
+        jsonData['COUNTRIES'] = thisList1
 
     #--descriptions
     itemNum = 0
@@ -600,8 +599,9 @@ def g2Mapping(masterRecord, recordType):
     if thisList:
         jsonData['RELATIONSHIPS'] = thisList
         
-    #--add watch_list keys
-    jsonData = baseLibrary.jsonUpdater(jsonData)
+    #--add composite keys
+    if addCompositeKeys:
+        jsonData = baseLibrary.jsonUpdater(jsonData)
 
     return jsonData
         
@@ -621,12 +621,14 @@ if __name__ == "__main__":
     argparser.add_argument('-l', '--log_file', default=os.getenv('log_file'.upper(), None), type=str, help='optional statistics filename (json format).')
     argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
     argparser.add_argument('-nr', '--no_relationships', default=False, action='store_true', help='do not create disclosed relationships, an attribute will still be stored')
+    argparser.add_argument('-ck', '--add_composite_keys', default=False, action='store_true', help='add composite keys, not needed from v1.13 on')
     args = argparser.parse_args()
     inputFileName = args.input_file
     outputFileName = args.output_file
     logFile = args.log_file
     dataSource = args.data_source
     noRelationships = args.no_relationships
+    addCompositeKeys = args.add_composite_keys
     
     #--default and validate the data source
     if not dataSource and 'PFA' in inputFileName.upper():

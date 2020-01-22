@@ -328,7 +328,6 @@ def g2Mapping(masterRecord, recordType):
         jsonData['DATES'] = thisList
             
     #--addresses
-    onlyCountryList = []
     thisList = []
     for addrRecord in masterRecord.findall('Address'):
         address = {}
@@ -343,14 +342,13 @@ def g2Mapping(masterRecord, recordType):
             address['ADDR_CITY'] = addrCity
         addrCountry = getValue(addrRecord, 'AddressCountry')
         if addrCountry:
-            address['ADDR_COUNTRY'] = addrCountry
+            address['ADDR_COUNTRY'] = countryCodes[addrCountry] if addrCountry in countryCodes else addrCountry
+            isoCountry = baseLibrary.isoCountryCode(address['ADDR_COUNTRY'])
+            if isoCountry:
+                address['ADDR_COUNTRY'] = isoCountry
 
-        if len(address) == 1 and list(address.keys())[0] == 'ADDR_COUNTRY':
-            onlyCountryList.append(address['ADDR_COUNTRY'])
-            updateStat('ADDRESS', 'country only')
-        else:
-            thisList.append(address)
-            updateStat('ADDRESS', 'UNTYPED')
+        thisList.append(address)
+        updateStat('ADDRESS', 'UNTYPED')
 
     if thisList:
         jsonData['ADDRESSES'] = thisList
@@ -372,14 +370,13 @@ def g2Mapping(masterRecord, recordType):
             address['ADDR_CITY'] = addrCity
         addrCountry = getValue(addrRecord, 'AddressCountry')
         if addrCountry:
-            address['ADDR_COUNTRY'] = addrCountry
-        if address:
-            if len(address) == 1 and list(address.keys())[0] == 'ADDR_COUNTRY':
-                onlyCountryList.append(address['ADDR_COUNTRY'])
-                updateStat('ADDRESS', 'country only')
-            else:
-                thisList1.append(address)
-                updateStat('ADDRESS', 'UNTYPED')
+            address['ADDR_COUNTRY'] = countryCodes[addrCountry] if addrCountry in countryCodes else addrCountry
+            isoCountry = baseLibrary.isoCountryCode(address['ADDR_COUNTRY'])
+            if isoCountry:
+                address['ADDR_COUNTRY'] = isoCountry
+
+        thisList1.append(address)
+        updateStat('ADDRESS', 'BUSINESS')
             
         url = getValue(addrRecord, 'URL')
         if url:
@@ -390,9 +387,47 @@ def g2Mapping(masterRecord, recordType):
         jsonData['COMPANY_ADDRESSES'] = thisList1
     if thisList2:
         jsonData['COMPANY_WEBSITES'] = thisList2
-    if onlyCountryList: 
-        jsonData['Address_country'] = ','.join(set(onlyCountryList))
             
+    #--countries
+    thisList1 = []
+    for birthPlaceRecord in masterRecord.findall('BirthPlace/Place'):
+        birthPlace = birthPlaceRecord.attrib['name']
+        thisList1.append({'PLACE_OF_BIRTH': birthPlace})
+        updateStat('ATTRIBUTE', 'PLACE_OF_BIRTH')
+ 
+    for countryRecord in masterRecord.findall('CountryDetails/Country'):
+        countryType = countryRecord.attrib['CountryType']
+        if countryType == 'Citizenship':
+            attributeType = 'CITIZENSHIP'
+        else:
+            if countryType == 'REGISTRATION':
+                usageType = 'REGISTRATION'
+            elif countryType == 'Resident of':
+                usageType = 'RESIDENT'
+            elif countryType == 'Jurisdiction':
+                usageType = 'JURISDICTION'
+            elif countryType == 'Country of Affiliation':
+                usageType = 'AFFILIATED'
+            elif countryType == 'Enhanced Risk Country':
+                usageType = 'RISK'
+            else:
+                usageType = 'OTHER'
+            attributeType = usageType + '_COUNTRY_OF_ASSOCIATION'
+
+        itemNum = 0
+        for countryValue in countryRecord.findall('CountryValue'):
+            countryCode = countryValue.attrib['Code']
+            countryName = countryCodes[countryCode] if countryCode in countryCodes else countryCode
+            isoCountry = baseLibrary.isoCountryCode(countryName)
+            if isoCountry:
+                countryName = isoCountry
+
+            thisList1.append({attributeType: countryName})
+            updateStat('COUNTRIES', attributeType, countryName)
+ 
+    if thisList1:
+        jsonData['COUNTRIES'] = thisList1
+
     #--identifiers
     itemNum = 0
     thisList = []
@@ -474,49 +509,6 @@ def g2Mapping(masterRecord, recordType):
             
     if thisList:
         jsonData['IDENTIFIERS'] = thisList
-
-    #--countries
-    thisList1 = []
-    for birthPlaceRecord in masterRecord.findall('BirthPlace/Place'):
-        birthPlace = birthPlaceRecord.attrib['name']
-        thisList1.append({'PLACE_OF_BIRTH': birthPlace})
-        updateStat('ATTRIBUTE', 'PLACE_OF_BIRTH')
- 
-    for countryRecord in masterRecord.findall('CountryDetails/Country'):
-        countryType = countryRecord.attrib['CountryType']
-        isFeature = False
-        if countryType == 'Citizenship':
-            attributeType = 'CITIZENSHIP'
-            isFeature = True
-        elif countryType == 'Country of Registration':
-            attributeType = 'REGISTRATION_COUNTRY'
-            isFeature = True
-        elif countryType == 'Resident of':
-            attributeType = 'Resident_country'
-        elif countryType == 'Jurisdiction':
-            attributeType = 'Jurisdiction_country'
-        elif countryType == 'Country of Affiliation':
-            attributeType = 'Affiliated_country'
-        elif countryType == 'Enhanced Risk Country':
-            attributeType = 'Enhanced_risk_country'
-        else:
-            attributeType = countryType.replace(' ','_')
-
-        itemNum = 0
-        for countryValue in countryRecord.findall('CountryValue'):
-            countryCode = countryValue.attrib['Code']
-            countryName = countryCodes[countryCode] if countryCode in countryCodes else countryCode
-            if isFeature: 
-                thisList1.append({attributeType: countryName})
-                updateStat('ATTRIBUTE', attributeType, countryName)
-            else:
-                itemNum += 1
-                jsonData['Country' + str(itemNum)] = countryType + ' = ' + countryName
-                updateStat('OTHER', attributeType, countryName)
- 
-    if thisList1:
-        jsonData['COUNTRIES'] = thisList
-
 
     #--descriptions
     itemNum = 0
@@ -600,8 +592,9 @@ def g2Mapping(masterRecord, recordType):
     if thisList:
         jsonData['RELATIONSHIPS'] = thisList
         
-    #--add watch_list keys
-    jsonData = baseLibrary.jsonUpdater(jsonData)
+    #--add composite keys
+    if addCompositeKeys:
+        jsonData = baseLibrary.jsonUpdater(jsonData)
 
     return jsonData
         
@@ -620,13 +613,27 @@ if __name__ == "__main__":
     argparser.add_argument('-o', '--output_file', default=os.getenv('output_file'.upper(), None), type=str, help='output filename, defaults to input file name with a .json extension.')
     argparser.add_argument('-l', '--log_file', default=os.getenv('log_file'.upper(), None), type=str, help='optional statistics filename (json format).')
     argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
-    argparser.add_argument('-nr', '--no_relationships', default=False, action='store_true', help='do not create disclosed relationships, an attribute will still be stored')
     args = argparser.parse_args()
     inputFileName = args.input_file
     outputFileName = args.output_file
     logFile = args.log_file
     dataSource = args.data_source
-    noRelationships = args.no_relationships
+
+    #--deprecated arguments
+    noRelationships = False
+    addCompositeKeys = False
+    
+    if not inputFileName:
+        print('')
+        print('Please select a dow jones xml input file')
+        print('')
+        sys.exit(1)
+
+    if not os.path.exists(inputFileName):
+        print('')
+        print('Input file %s not found!' % inputFileName)
+        print('')
+        sys.exit(1)
     
     #--default and validate the data source
     if not dataSource and 'PFA' in inputFileName.upper():
@@ -641,18 +648,6 @@ if __name__ == "__main__":
     else:
         dataSource = dataSource.upper()
         
-    if not inputFileName:
-        print('')
-        print('Please select a dow jones xml input file')
-        print('')
-        sys.exit(1)
-
-    if not os.path.exists(inputFileName):
-        print('')
-        print('Input file %s not found!' % inputFileName)
-        print('')
-        sys.exit(1)
-    
     if not (outputFileName):
         print('')
         print('Please supply an output file name.')

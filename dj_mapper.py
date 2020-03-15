@@ -565,13 +565,24 @@ def g2Mapping(masterRecord, recordType):
     if thisId in relationships:
         for relationship in relationships[thisId]:
             #--disclosed relationship
-            relType = relationCodes[relationship['code']][0:25].replace(' ', '-')
+            relType = relationCodes[relationship['code']].replace(' ', '_').replace('-','_')
+            #--get other side
+            otherId = relationship['id']
+            relType1 = None
+            if otherId in relationships:
+                for relationship1 in relationships[otherId]:
+                    if relationship1['id'] == thisId:
+                        relType1 = relationCodes[relationship1['code']].replace(' ', '_').replace('-','_')
+                        break
+            relKey = '-'.join(sorted([thisId, otherId]))
+            if relType1 and relType1 != relType:
+                relType = '/'.join(sorted([relType, relType1]))
+            #--create the relationship
             thisRecord = {}
             if noRelationships:
-                thisRecord['Related to'] = '%s | %s | %s' % (dataSource, relationship['id'], relType[0:25])
+                thisRecord['Related to'] = '%s | %s | %s' % (dataSource, otherId, relType)
             else:  
-                relKey = '-'.join(sorted([thisId, relationship['id']]))
-                thisRecord['RELATIONSHIP_ROLE'] = relType
+                thisRecord['RELATIONSHIP_TYPE'] = relType
                 thisRecord['RELATIONSHIP_KEY'] = relKey
             updateStat('RELATIONSHIPS', relType)
             thisList.append(thisRecord)

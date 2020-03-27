@@ -177,9 +177,6 @@ def g2Mapping(masterRecord, recordType):
     jsonData = {}
     jsonData['DATA_SOURCE'] = dataSource
     jsonData['RECORD_ID'] = masterRecord.attrib['id']
-    jsonData['ENTITY_TYPE'] = recordType.upper()
-    jsonData['RECORD_TYPE'] = recordType.upper()
-    updateStat('ENTITY_TYPE', jsonData['ENTITY_TYPE'])
     
     jsonData['LAST_UPDATE'] = masterRecord.attrib['date']
     jsonData['STATUS'] = getValue(masterRecord, 'ActiveStatus')
@@ -270,7 +267,7 @@ def g2Mapping(masterRecord, recordType):
             thisList.append(name)
             
             #--check for a name conflict
-            if (jsonData['ENTITY_TYPE'] == 'PERSON' and 'NAME_ORG' in name) or (jsonData['ENTITY_TYPE'] != 'PERSON' and 'NAME_LAST' in name):
+            if (recordType == 'PERSON' and 'NAME_ORG' in name) or (recordType != 'PERSON' and 'NAME_LAST' in name):
                 orgPersonNameConflict = True
 
             #--duplicate this name segment for original script version if supplied
@@ -436,6 +433,8 @@ def g2Mapping(masterRecord, recordType):
         for idValue in idRecord.findall('IDValue'):
             idNumber = getValue(idValue)
             idNotes = getAttr(idValue, 'IDnotes')
+            if not idNotes:
+                idNotes = ''
 
             attrType1 = None
             attrType2 = None
@@ -467,14 +466,24 @@ def g2Mapping(masterRecord, recordType):
                 attrType1 = 'DUNS_NUMBER'
             elif idType.upper() == 'OFAC UNIQUE ID':
                 attrType1 = 'OFAC_ID'
-            elif idType.upper() == 'NATIONAL PROVIDER IDENTIFIER (NPI)':
+            elif idType.upper() == 'NATIONAL PROVIDER IDENTIFIER (NPI)' or idNotes.startswith('NPI') or '(NPI)' in idNotes.upper():
                 attrType1 = 'NPI_NUMBER'
             elif idType.upper() == 'LEGAL ENTITY IDENTIFIER (LEI)':
                 attrType1 = 'LEI_NUMBER'
-            elif idType.upper() == 'NATIONAL CRIMINAL IDENTIFICATION CODE (USA)':
+            elif idType.upper() == 'NATIONAL CRIMINAL IDENTIFICATION CODE (USA)' or '(NCIC)' in idNotes.upper():
                 attrType1 = 'NCIC_NUMBER'
             elif idType.upper() == 'CENTRAL REGISTRATION DEPOSITORY (CRD)':
                 attrType1 = 'CRD_NUMBER'
+            elif idType.upper() == 'INTERNATIONAL MARITIME ORGANIZATION (IMO) SHIP NO.':
+                attrType1 = 'IMO_NUMBER'
+            elif idType.upper() == 'INTERNATIONAL SECURITIES IDENTIFICATION NUMBER (ISIN)':
+                attrType1 = 'ISIN_NUMBER'
+            elif idType.upper() == 'OTHERS' and idNotes.upper() == 'MMSI':
+                attrType1 = 'MMSI_NUMBER'
+            elif '(MSN)' in idType.upper():
+                attrType1 = 'AIRCRAFT_MSN'
+            elif idType.upper() == 'OTHERS' and 'AIRCRAFT TAIL NUMBER' in idNotes.upper():
+                attrType1 = 'AIRCRAFT_TAIL_NUMBER'
             else:
                 attrType1 = None
 
@@ -513,11 +522,20 @@ def g2Mapping(masterRecord, recordType):
     #--descriptions
     itemNum = 0
     for descriptionRecord in masterRecord.findall('Descriptions/Description'):
-        try: description1 = description1Codes[descriptionRecord.attrib['Description1']]
+        description1Code = None
+        description2Code = None
+        description3Code = None
+        try: 
+            description1 = '%s=%s' % (descriptionRecord.attrib['Description1'], description1Codes[descriptionRecord.attrib['Description1']])
+            description1Code = descriptionRecord.attrib['Description1']
         except: description1 = ''
-        try: description2 = description2Codes[descriptionRecord.attrib['Description2']]
+        try: 
+            description2 = '%s=%s' % (descriptionRecord.attrib['Description2'], description2Codes[descriptionRecord.attrib['Description2']])
+            description2Code = descriptionRecord.attrib['Description2']
         except: description2 = ''
-        try: description3 = description3Codes[descriptionRecord.attrib['Description3']]
+        try: 
+            description3 = '%s=%s' % (descriptionRecord.attrib['Description3'], description3Codes[descriptionRecord.attrib['Description3']])
+            description3Code = description3Codes[descriptionRecord.attrib['Description3']].upper()
         except: description3 = ''
         if description1 or description2 or description3:
             itemNum += 1
@@ -525,7 +543,13 @@ def g2Mapping(masterRecord, recordType):
             description += (' | ' if description2 else '') + description2
             description += (' | ' if description3 else '') + description3
             jsonData["Description%s" % itemNum] = description
-            updateStat('OTHER', 'DESCRIPTIONS', description)
+            updateStat('DESCRIPTIONS', description, jsonData['RECORD_ID'])
+
+        #--record type reclassifications
+        if description3Code == 'SHIP':
+            recordType = 'VESSEL'
+        if description3Code == 'AIRCRAFT':
+            recordType = 'AIRCRAFT'
 
     #--roles
     for roleRecord in masterRecord.findall('RoleDetail/Roles'):
@@ -603,6 +627,11 @@ def g2Mapping(masterRecord, recordType):
     if thisList:
         jsonData['RELATIONSHIPS'] = thisList
         
+    #--assign the entity and record type
+    jsonData['ENTITY_TYPE'] = recordType.upper()                                                                                                                                
+    jsonData['RECORD_TYPE'] = recordType.upper()
+    updateStat('ENTITY_TYPE', jsonData['ENTITY_TYPE'])
+
     #--add composite keys
     if addCompositeKeys:
         jsonData = baseLibrary.jsonUpdater(jsonData)

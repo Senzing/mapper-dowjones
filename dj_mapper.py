@@ -466,11 +466,11 @@ def g2Mapping(masterRecord, recordType):
                 attrType1 = 'DUNS_NUMBER'
             elif idType.upper() == 'OFAC UNIQUE ID':
                 attrType1 = 'OFAC_ID'
-            elif idType.upper() == 'NATIONAL PROVIDER IDENTIFIER (NPI)' or idNotes.startswith('NPI'):
+            elif idType.upper() == 'NATIONAL PROVIDER IDENTIFIER (NPI)' or idNotes.startswith('NPI') or '(NPI)' in idNotes.upper():
                 attrType1 = 'NPI_NUMBER'
             elif idType.upper() == 'LEGAL ENTITY IDENTIFIER (LEI)':
                 attrType1 = 'LEI_NUMBER'
-            elif idType.upper() == 'NATIONAL CRIMINAL IDENTIFICATION CODE (USA)' or '(NCIC)' in idType.upper():
+            elif idType.upper() == 'NATIONAL CRIMINAL IDENTIFICATION CODE (USA)' or '(NCIC)' in idNotes.upper():
                 attrType1 = 'NCIC_NUMBER'
             elif idType.upper() == 'CENTRAL REGISTRATION DEPOSITORY (CRD)':
                 attrType1 = 'CRD_NUMBER'

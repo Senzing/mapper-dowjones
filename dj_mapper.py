@@ -7,6 +7,7 @@ import signal
 import time
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as etree
+import xml.dom.minidom as minidom
 import json
 import random
 import re
@@ -192,6 +193,12 @@ def g2Mapping(masterRecord, recordType):
         jsonData['DECEASED'] = deceased
         updateStat('OTHER', 'DECEASED', deceased)
     
+    if extendedFormat:
+        profileNotes = getValue(masterRecord, 'ProfileNotes')
+        if profileNotes:
+            jsonData['PROFILE_NOTES'] = profileNotes
+            updateStat('ATTRIBUTE', 'PROFILE_NOTES')
+
     #--names
     # <NameType NameTypeID="1" RecordType="Person">Primary Name</NameType>
     # <NameType NameTypeID="2" RecordType="Person">Also Known As</NameType>
@@ -576,40 +583,68 @@ def g2Mapping(masterRecord, recordType):
         updateStat('OTHER', 'REFERENCES', referenceName)
         
     #--sources
-    if False:  #--disabled to keep reports smaller
+    if extendedFormat:  #--disabled to keep reports smaller
         itemNum = 0
         for sourceRecord in masterRecord.findall('SourceDescription/Source'):
+            itemNum += 1
             sourceName = sourceRecord.attrib['name']
-            #--updateStat('source-' + sourceName) <--too many of these to log
+            updateStat('OTHER', 'SOURCES')
             jsonData["Source%s" % itemNum] = sourceName
+
+    #--images
+    if extendedFormat:  #--disabled to keep reports smaller
+        itemNum = 0
+        for imageRecord in masterRecord.findall('Images/Image'):
+            itemNum += 1
+            imageURL = imageRecord.attrib['URL']
+            #--updateStat('source-' + sourceName) <--too many of these to log
+            jsonData["Image%s" % itemNum] = imageURL
 
     #--disclosed relationships
     thisList = []
     thisId = jsonData['RECORD_ID']
     if thisId in relationships:
+
+        if relationshipStyle == 2: 
+            thisRecord = {}
+            thisRecord['REL_ANCHOR_DOMAIN'] = 'DJ_ID'
+            thisRecord['REL_ANCHOR_KEY'] = thisId
+            thisList.append(thisRecord)
+
+
         for relationship in relationships[thisId]:
-            #--disclosed relationship
-            relType = relationCodes[relationship['code']].replace(' ', '_').replace('-','_')
-            #--get other side
             otherId = relationship['id']
-            relType1 = None
-            if otherId in relationships:
-                for relationship1 in relationships[otherId]:
-                    if relationship1['id'] == thisId:
-                        relType1 = relationCodes[relationship1['code']].replace(' ', '_').replace('-','_')
-                        break
-            relKey = '-'.join(sorted([thisId, otherId]))
-            if relType1 and relType1 != relType:
-                relType = '/'.join(sorted([relType, relType1]))
-            #--create the relationship
+            relType = relationCodes[relationship['code']].replace(' ', '_').replace('-','_')
+
             thisRecord = {}
             if noRelationships:
                 thisRecord['Related to'] = '%s | %s | %s' % (dataSource, otherId, relType)
-            else:  
+
+            #--new relationship strategy
+            elif relationshipStyle == 2:
+                thisRecord['REL_POINTER_DOMAIN'] = 'DJ_ID'
+                thisRecord['REL_POINTER_KEY'] = otherId
+                thisRecord['REL_POINTER_ROLE'] = relType
+            else:
+
+                #--get other side
+                relType1 = None
+                if otherId in relationships:
+                    for relationship1 in relationships[otherId]:
+                        if relationship1['id'] == thisId:
+                            relType1 = relationCodes[relationship1['code']].replace(' ', '_').replace('-','_')
+                            break
+                relKey = '-'.join(sorted([thisId, otherId]))
+                if relType1 and relType1 != relType:
+                    relType = '/'.join(sorted([relType, relType1]))
+
+                #--create the relationship
                 thisRecord['RELATIONSHIP_TYPE'] = relType
                 thisRecord['RELATIONSHIP_KEY'] = relKey
+
             updateStat('RELATIONSHIPS', relType)
             thisList.append(thisRecord)
+
             #--group association name
             if recordType == 'PERSON' and relationship['id'] in entityNames:
                 thisRecord = {}
@@ -617,6 +652,7 @@ def g2Mapping(masterRecord, recordType):
                 thisRecord[relType + '_GROUP_ASSOCIATION_ORG_NAME'] = entityNames[relationship['id']]
                 thisList.append(thisRecord)
                 updateStat('GROUP_ASSOCIATION', 'NAME', relType)
+
             #--group association IDs
             if recordType == 'PERSON' and relationship['id'] in entityDuns:
                 thisRecord = {}
@@ -624,6 +660,7 @@ def g2Mapping(masterRecord, recordType):
                 thisRecord[relType + '_GROUP_ASSN_ID_NUMBER'] = entityDuns[relationship['id']]
                 thisList.append(thisRecord)
                 updateStat('GROUP_ASSOCIATION', 'DUNS', relType)
+
     if thisList:
         jsonData['RELATIONSHIPS'] = thisList
         
@@ -649,15 +686,22 @@ if __name__ == "__main__":
     progressInterval = 10000
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('-i', '--input_file', default=os.getenv('input_file'.upper(), None), type=str, help='A Dow Jones xml file for PFA or HRF.')
-    argparser.add_argument('-o', '--output_file', default=os.getenv('output_file'.upper(), None), type=str, help='output filename, defaults to input file name with a .json extension.')
-    argparser.add_argument('-l', '--log_file', default=os.getenv('log_file'.upper(), None), type=str, help='optional statistics filename (json format).')
+    argparser.add_argument('-i', '--input_file', default=os.getenv('input_file', None), type=str, help='A Dow Jones xml file for PFA or HRF.')
+    argparser.add_argument('-o', '--output_file', default=os.getenv('output_file', None), type=str, help='output filename, defaults to input file name with a .json extension.')
+    argparser.add_argument('-l', '--log_file', default=os.getenv('log_file', None), type=str, help='optional statistics filename (json format).')
     argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
+    argparser.add_argument('-r', '--relationship_style', dest='relationship_style', type=int, default=os.getenv('data_source', 2), help='styles: 0=None, 1=Legacy linking, 2=Pointers (new for Senzing v1.15)')
+    argparser.add_argument('-e', '--extended_format', dest='extended_format', action='store_true', default=False, help='include profile notes, sources, and images')
+    argparser.add_argument('-D', '--debug_level', dest='debug_level', type=int, default=0, help='debug options: 1=Show XML only, 2=Show XML and JSON')
+
     args = argparser.parse_args()
     inputFileName = args.input_file
     outputFileName = args.output_file
     logFile = args.log_file
     dataSource = args.data_source
+    relationshipStyle = args.relationship_style
+    extendedFormat = args.extended_format
+    debugLevel = args.debug_level
 
     #--deprecated arguments
     noRelationships = False
@@ -724,83 +768,84 @@ if __name__ == "__main__":
     print('Data source set to %s' % dataSource)
     print('')
     print('Reading from: %s ...' % inputFileName)
-    xmlReader = etree.iterparse(inputFileName, events=("start", "end"))
-    for event, node in xmlReader:
-        if event == 'end':
+    if debugLevel != 1:
+        xmlReader = etree.iterparse(inputFileName, events=("start", "end"))
+        for event, node in xmlReader:
+            if event == 'end':
 
-            if node.tag == 'CountryList':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('CountryName'):
-                    countryCodes[getAttr(record, 'code')] = getAttr(record, 'name')
-                node.clear()
-                
-            elif node.tag == 'Description1List':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('Description1Name'):
-                    description1Codes[getAttr(record, 'Description1Id')] = getValue(record)
-                node.clear()
-
-            elif node.tag == 'Description2List':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('Description2Name'):
-                    description2Codes[getAttr(record, 'Description2Id')] = getValue(record)
-                node.clear()
-
-            elif node.tag == 'Description3List':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('Description3Name'):
-                    description3Codes[getAttr(record, 'Description3Id')] = getValue(record)
-                node.clear()
-
-            elif node.tag == 'SanctionsReferencesList':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('ReferenceName'):
-                    referenceCodes[getAttr(record, 'code')] = getAttr(record, 'name')
-                node.clear()
-
-            elif node.tag == 'RelationshipList':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('Relationship'):
-                    relationCodes[getAttr(record, 'code')] = getAttr(record, 'name').replace('_', '-')
-                node.clear()
+                if node.tag == 'CountryList':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('CountryName'):
+                        countryCodes[getAttr(record, 'code')] = getAttr(record, 'name')
+                    node.clear()
                     
-            elif node.tag == 'Associations':
-                print('loading %s ...' % node.tag) 
-                for record in node.findall('PublicFigure'):
-                    id = getAttr(record, 'id')
-                    relationships[id] = []
-                    for record1 in record.findall('Associate'):
-                        relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code')})
-                for record in node.findall('SpecialEntity'):
-                    id = getAttr(record, 'id')
-                    relationships[id] = []
-                    for record1 in record.findall('Associate'):
-                        relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code')})
-                node.clear()
-        
-            elif node.tag == 'Entity':
-                id = getAttr(node, 'id')
-                for nameRecord in node.findall('NameDetails/Name'):
-                    if nameRecord.attrib['NameType'] == 'Primary Name':
-                        for nameValue in nameRecord.findall('NameValue'):
-                            nameOrg = getValue(nameValue, 'EntityName')
-                            if nameOrg:
-                                entityNames[id] = nameOrg
-                                break
-                        break
-                for idRecord in node.findall('IDNumberTypes/ID'):
-                    if idRecord.attrib['IDType'] == 'DUNS Number':
-                        for idValue in idRecord.findall('IDValue'):
-                            idNumber = getValue(idValue)
-                            if idNumber: 
-                                entityDuns[id] = idNumber
-                                break
-                        break
+                elif node.tag == 'Description1List':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('Description1Name'):
+                        description1Codes[getAttr(record, 'Description1Id')] = getValue(record)
+                    node.clear()
 
-                node.clear()
+                elif node.tag == 'Description2List':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('Description2Name'):
+                        description2Codes[getAttr(record, 'Description2Id')] = getValue(record)
+                    node.clear()
 
-            elif node.tag in ('Person'):
-                node.clear()
+                elif node.tag == 'Description3List':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('Description3Name'):
+                        description3Codes[getAttr(record, 'Description3Id')] = getValue(record)
+                    node.clear()
+
+                elif node.tag == 'SanctionsReferencesList':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('ReferenceName'):
+                        referenceCodes[getAttr(record, 'code')] = getAttr(record, 'name')
+                    node.clear()
+
+                elif node.tag == 'RelationshipList':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('Relationship'):
+                        relationCodes[getAttr(record, 'code')] = getAttr(record, 'name').replace('_', '-')
+                    node.clear()
+                        
+                elif node.tag == 'Associations':
+                    print('loading %s ...' % node.tag) 
+                    for record in node.findall('PublicFigure'):
+                        id = getAttr(record, 'id')
+                        relationships[id] = []
+                        for record1 in record.findall('Associate'):
+                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code')})
+                    for record in node.findall('SpecialEntity'):
+                        id = getAttr(record, 'id')
+                        relationships[id] = []
+                        for record1 in record.findall('Associate'):
+                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code')})
+                    node.clear()
+            
+                elif node.tag == 'Entity':
+                    id = getAttr(node, 'id')
+                    for nameRecord in node.findall('NameDetails/Name'):
+                        if nameRecord.attrib['NameType'] == 'Primary Name':
+                            for nameValue in nameRecord.findall('NameValue'):
+                                nameOrg = getValue(nameValue, 'EntityName')
+                                if nameOrg:
+                                    entityNames[id] = nameOrg
+                                    break
+                            break
+                    for idRecord in node.findall('IDNumberTypes/ID'):
+                        if idRecord.attrib['IDType'] == 'DUNS Number':
+                            for idValue in idRecord.findall('IDValue'):
+                                idNumber = getValue(idValue)
+                                if idNumber: 
+                                    entityDuns[id] = idNumber
+                                    break
+                            break
+
+                    node.clear()
+
+                elif node.tag in ('Person'):
+                    node.clear()
 
     #print('countryCodes', len(countryCodes))
     #print('description1Codes', len(description1Codes))
@@ -818,6 +863,13 @@ if __name__ == "__main__":
     xmlReader = etree.iterparse(inputFileName, events=("start", "end"))
     for event, node in xmlReader:
         if event == 'end' and node.tag in ('Person','Entity'):
+            if debugLevel in (1,2):
+                print('='*50)
+                print(minidom.parseString(etree.tostring(node, 'utf-8')).toprettyxml(indent="\t"))
+            if debugLevel == 1:
+                pause()
+                continue
+
             if node.tag == 'Person':
                 jsonData = g2Mapping(node, 'PERSON')
                 personCnt += 1 
@@ -825,6 +877,11 @@ if __name__ == "__main__":
                 jsonData = g2Mapping(node, 'ORGANIZATION')
                 entityCnt += 1
             msg = json.dumps(jsonData, ensure_ascii=False)
+
+            if debugLevel == 2:
+                print('-'*50)
+                print(json.dumps(jsonData, ensure_ascii=False, indent=4))
+                pause()
 
             try: outputFileHandle.write(msg + '\n')
             except IOError as err:

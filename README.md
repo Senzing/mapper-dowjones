@@ -16,8 +16,8 @@ Usage:
 
 ```console
 python dj_mapper.py --help
-usage: dj_mapper.py [-h] [-i INPUT_FILE] [-o OUTPUT_FILE]
-                    [-l LOG_FILE] [-d DATA_SOURCE]
+usage: dj_mapper.py [-h] [-i INPUT_FILE] [-o OUTPUT_FILE] [-l LOG_FILE]
+                    [-d DATA_SOURCE] [-r RELATIONSHIP_STYLE] [-e]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -30,6 +30,11 @@ optional arguments:
                         optional statistics filename (json format).
   -d DATA_SOURCE, --data_source DATA_SOURCE
                         please use DJ-PFA or DJ-HRF based on the type of file.
+  -r RELATIONSHIP_STYLE, --relationship_style RELATIONSHIP_STYLE
+                        styles: 0=None, 1=Legacy linking, 2=Pointers (new for
+                        Senzing v1.15)
+  -e, --extended_format
+                        include profile notes, sources, and images
 ```
 
 ## Contents
@@ -110,6 +115,10 @@ python3 dj_mapper.py -i ./input/PFA2_201303312200_F.xml -o ./output/PFA2_2013033
 The output file defaults to the same name and location as the input file and a .json extension is added.
 
 - Add the -d parameter if you have renamed the input file so that neither PFA nor HRF is in the file name.
+
+- Add the -e parameter if you want to include the following fields: profile notes, sources, and images.
+
+- Add the -r 1 parameter if you are on Senzing versions prior to v1.15.
 
 *Note* The log file should be reviewed occasionally to determine if there are other values that can be mapped to new features.  Check the "UNKNOWN" section for values that you may get from other data sources that you would like to make into features.  Most of these values were not mapped because there just aren't enough of them to matter and/or you are not likely to get them from any other data sources. However, DUNS_NUMBER, LEI_NUMBER, and the other new features listed above were found by reviewing these statistics!
 

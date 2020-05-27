@@ -8,7 +8,7 @@ The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list fil
 - High Risk File or (HRF)
 - Adverse Media Entities (AME)
 
-If you subscribe to the either Dow Jones Risk and Compliance database, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
+If you subscribe to any of these Dow Jones feeds, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the
 [dj_config_updates.json](dj_config_updates.json) file.

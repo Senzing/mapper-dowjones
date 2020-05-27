@@ -6,7 +6,7 @@ The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list fil
 
 - Risk and Compliance database (PFA)
 - High Risk File or (HRF)
-
+- Adverse Media Entities (AME)
 If you subscribe to the either Dow Jones Risk and Compliance database, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the
@@ -29,7 +29,7 @@ optional arguments:
   -l LOG_FILE, --log_file LOG_FILE
                         optional statistics filename (json format).
   -d DATA_SOURCE, --data_source DATA_SOURCE
-                        please use DJ-PFA or DJ-HRF based on the type of file.
+                        please use DJ-PFA, DJ-HRF or DJ-AME based on the type of file.
   -r RELATIONSHIP_STYLE, --relationship_style RELATIONSHIP_STYLE
                         styles: 0=None, 1=Legacy linking, 2=Pointers (new for
                         Senzing v1.15)

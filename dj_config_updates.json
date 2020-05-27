@@ -1,5 +1,7 @@
 addDataSource DJ-PFA
 addDataSource DJ-HRF
+addDataSource DJ-AME
+addDataSource DJ-SOC
 
 addEntityType PERSON
 addEntityType ORGANIZATION
@@ -34,6 +36,12 @@ addAttribute {"attribute": "AIRCRAFT_MSN", "class": "IDENTIFIER", "feature": "AI
 
 addFeature  {"feature": "AIRCRAFT_TAIL_NUMBER", "class": "ISSUED_ID", "behavior": "F1", "anonymize": "No", "candidates": "Yes", "standardize": "", "expression": "", "comparison": "EXACT_COMP", "elementList": [{"element": "ID_NUM", "expressed": "No", "compared": "Yes"}]}
 addAttribute {"attribute": "AIRCRAFT_TAIL_NUMBER", "class": "IDENTIFIER", "feature": "AIRCRAFT_TAIL_NUMBER", "element": "ID_NUM", "required": "Yes", "default": "", "advanced": "No", "internal": "No"}
+
+addFeature  {"feature": "MSB_LICENSE", "class": "ISSUED_ID", "behavior": "F1E", "anonymize": "No", "candidates": "Yes", "standardize": "", "expression": "", "comparison": "EXACT_COMP", "elementList": [{"element": "ID_NUM", "expressed": "No", "compared": "Yes"}]}
+addAttribute {"attribute": "MSB_LICENSE_NUMBER", "class": "IDENTIFIER", "feature": "MSB_LICENSE", "element": "ID_NUM", "required": "Yes", "default": "", "advanced": "No", "internal": "No"}
+
+addFeature  {"feature": "MARIJUANA_LICENSE", "class": "ISSUED_ID", "behavior": "F1E", "anonymize": "No", "candidates": "Yes", "standardize": "", "expression": "", "comparison": "EXACT_COMP", "elementList": [{"element": "ID_NUM", "expressed": "No", "compared": "Yes"}]}
+addAttribute {"attribute": "MARIJUANA_LICENSE_NUMBER", "class": "IDENTIFIER", "feature": "MARIJUANA_LICENSE", "element": "ID_NUM", "required": "Yes", "default": "", "advanced": "No", "internal": "No"}
 
 save
 updateDatabase

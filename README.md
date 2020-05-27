@@ -92,7 +92,8 @@ see [dj_config_updates.json](dj_config_updates.json) for a list of configuration
 First, download the xml file you want to load from the DowJones website.  Here are a couple of examples of how the files will be named ...
 
 - PFA2_201902282200_F.xml           <--Risk and Compliance database (PFA)
-- DJRC_HRF_XML_201903012359_F.xml   <--High Risk File or (HRF)
+- DJRC_HRF_XML_201903012359_F.xml   <--High Risk File (HRF)
+- DJRC_AMe_XML_201903012359_F.xml   <--Adversse Media Entity (AME)
 
 It is good practice to keep a history of these files on a directory where you will store other source data files loaded into Senzing.
 
@@ -104,7 +105,7 @@ python3 dj_mapper.py -i ./input/PFA2_201303312200_F.xml -o ./output/PFA2_2013033
 
 The output file defaults to the same name and location as the input file and a .json extension is added.
 
-- Add the -d parameter if you have renamed the input file so that neither PFA nor HRF is in the file name.
+- Add the -d parameter if you get a message that the data source could not be determined from the file name.
 
 - Add the -e parameter if you want to include the following fields: profile notes, sources, and images.
 

@@ -743,7 +743,7 @@ if __name__ == "__main__":
          dataSource = 'DJ-AME'
     if not dataSource:
         print('')
-        print('Please specify a data source code for this file')
+        print('Please specify a data source as it could not be determined from the file name.')
         print('')
         sys.exit(1)
     else:

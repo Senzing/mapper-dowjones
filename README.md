@@ -7,6 +7,7 @@ The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list fil
 - Risk and Compliance database (PFA)
 - High Risk File or (HRF)
 - Adverse Media Entities (AME)
+
 If you subscribe to the either Dow Jones Risk and Compliance database, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the

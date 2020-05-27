@@ -80,23 +80,10 @@ export PYTHONPATH=$PYTHONPATH:/senzing/mappers/mapper-base
 From the /opt/senzing/g2/python directory ...
 
 ```console
-python3 G2ConfigTool.py <path-to-file>/dj_config_updates.json
+python3 G2ConfigTool.py <path-to-file>/[dj_config_updates.json](dj_config_updates.json) file
 ```
 
 This will step you through the process of adding the data sources, entity types, features, attributes and other settings needed to load this watch list data into Senzing. After each command you will see a status message saying "success" or "already exists".  For instance, if you run the script twice, the second time through they will all say "already exists" which is OK.
-
-Configuration updates include:
-
-- addDataSource **DJ-PFA**
-- addDataSource **DJ-HRF**
-- addEntityType **PERSON**
-- addEntityType **ORGANIZATION**
-- add features and attributes for ...
-  - **DJ_PROFILE_ID** This is used to help prevent watch list entries from resolving to each other and so that you can search on it.
-  - **OFAC_ID** This is used to help prevent watch list entries from resolving to each other and so that you can search on it.
-  - **NCIC_NUMBER** This is a unique identifier for an entry in the FBI's National Crime Information Center.
-  - **CRD_NUMBER** This is a unique identifier assigned by FINRA for all firms and individuals involved in the U.S. securities industry.
-  - **COMPANY_ID** It is unclear from Dow Jones documentation exactly what this number is, but it appears to be a registry of companies by country.
 
 ### Running the mapper
 

@@ -1,7 +1,6 @@
 addDataSource DJ-PFA
 addDataSource DJ-HRF
 addDataSource DJ-AME
-addDataSource DJ-SOC
 
 addEntityType PERSON
 addEntityType ORGANIZATION

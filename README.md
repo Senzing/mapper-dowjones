@@ -80,10 +80,12 @@ export PYTHONPATH=$PYTHONPATH:/senzing/mappers/mapper-base
 From the /opt/senzing/g2/python directory ...
 
 ```console
-python3 G2ConfigTool.py <path-to-file>/[dj_config_updates.json](dj_config_updates.json) file
+python3 G2ConfigTool.py <path-to-file>/dj_config_updates.json
 ```
 
 This will step you through the process of adding the data sources, entity types, features, attributes and other settings needed to load this watch list data into Senzing. After each command you will see a status message saying "success" or "already exists".  For instance, if you run the script twice, the second time through they will all say "already exists" which is OK.
+
+see [dj_config_updates.json](dj_config_updates.json) for a list of configuration updates required. 
 
 ### Running the mapper
 

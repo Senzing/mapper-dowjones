@@ -298,7 +298,14 @@ def g2Mapping(masterRecord, recordType):
     thisList = []
     for dateRecord in masterRecord.findall('DateDetails/Date'):
 
-        dateType = dateRecord.attrib['DateType']
+        try: dateType = dateRecord.attrib['DateType']
+        except: #--all but the anti-corruption (SOC) feed use DateType 
+            try: dateType = dateRecord.attrib['DateTypeId']
+            except:
+                print('bad date record!')
+                print(minidom.parseString(etree.tostring(dateRecord, 'utf-8')).toprettyxml(indent="\t"))
+                continue
+ 
         if dateType == 'Date of Birth':
             dateType = 'DATE_OF_BIRTH'
         elif dateType == 'Deceased Date':
@@ -485,6 +492,10 @@ def g2Mapping(masterRecord, recordType):
                 attrType1 = 'IMO_NUMBER'
             elif idType.upper() == 'INTERNATIONAL SECURITIES IDENTIFICATION NUMBER (ISIN)':
                 attrType1 = 'ISIN_NUMBER'
+            elif idType.upper() == 'MSB LICENCE NUMBER':
+                attrType1 = 'MSB_LICENSE_NUMBER'
+            elif idType.upper() == 'MARIJUANA LICENCE NUMBER':
+                attrType1 = 'MARIJUANA_LICENSE_NUMBER'
             elif idType.upper() == 'OTHERS' and idNotes.upper() == 'MMSI':
                 attrType1 = 'MMSI_NUMBER'
             elif '(MSN)' in idType.upper():
@@ -689,10 +700,11 @@ if __name__ == "__main__":
     argparser.add_argument('-i', '--input_file', default=os.getenv('input_file', None), type=str, help='A Dow Jones xml file for PFA or HRF.')
     argparser.add_argument('-o', '--output_file', default=os.getenv('output_file', None), type=str, help='output filename, defaults to input file name with a .json extension.')
     argparser.add_argument('-l', '--log_file', default=os.getenv('log_file', None), type=str, help='optional statistics filename (json format).')
-    argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA or DJ-HRF based on the type of file.')
+    argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA, DJ-HRF or DJ-AME based on the type of file.')
     argparser.add_argument('-r', '--relationship_style', dest='relationship_style', type=int, default=os.getenv('data_source', 2), help='styles: 0=None, 1=Legacy linking, 2=Pointers (new for Senzing v1.15)')
     argparser.add_argument('-e', '--extended_format', dest='extended_format', action='store_true', default=False, help='include profile notes, sources, and images')
     argparser.add_argument('-D', '--debug_level', dest='debug_level', type=int, default=0, help='debug options: 1=Show XML only, 2=Show XML and JSON')
+    argparser.add_argument('-L', '--lookup_profile', dest='dj_profile_id', type=str, help='enter a DJ profile ID to lookup for debugging purposes')
 
     args = argparser.parse_args()
     inputFileName = args.input_file
@@ -702,6 +714,9 @@ if __name__ == "__main__":
     relationshipStyle = args.relationship_style
     extendedFormat = args.extended_format
     debugLevel = args.debug_level
+    dj_profile_id = args.dj_profile_id
+    if dj_profile_id and not debugLevel:  #--looking up a profile is a form of debugging
+        debugLevel = 1
 
     #--deprecated arguments
     noRelationships = False
@@ -724,27 +739,31 @@ if __name__ == "__main__":
         dataSource = 'DJ-PFA'
     elif not dataSource and 'HRF' in inputFileName.upper():
         dataSource = 'DJ-HRF'
-    if not dataSource or dataSource.upper() not in ('DJ-PFA', 'DJ-HRF'):
+    elif not dataSource and 'AME' in inputFileName.upper():                                                                                                                     
+         dataSource = 'DJ-AME'
+    if not dataSource:
         print('')
-        print('Please specify either DJ-PFA or DJ-HRF as the data source')
+        print('Please specify a data source as it could not be determined from the file name.')
         print('')
         sys.exit(1)
     else:
         dataSource = dataSource.upper()
         
-    if not (outputFileName):
+    if not (outputFileName) and not debugLevel:
         print('')
         print('Please supply an output file name.')
         print('')
+        sys.exit(1)
 
     #--open output file
-    try: outputFileHandle = open(outputFileName, "w", encoding='utf-8')
-    except IOError as err:
-        print('')
-        print('Could not open output file %s for writing' % outputFileName)
-        print(' %s' % err)
-        print('')
-        sys.exit(1)
+    if outputFileName:
+        try: outputFileHandle = open(outputFileName, "w", encoding='utf-8')
+        except IOError as err:
+            print('')
+            print('Could not open output file %s for writing' % outputFileName)
+            print(' %s' % err)
+            print('')
+            sys.exit(1)
 
     #--initialize some stats
     recordCnt = 0
@@ -806,7 +825,11 @@ if __name__ == "__main__":
                 elif node.tag == 'RelationshipList':
                     print('loading %s ...' % node.tag) 
                     for record in node.findall('Relationship'):
-                        relationCodes[getAttr(record, 'code')] = getAttr(record, 'name').replace('_', '-')
+                        try: relationCodes[getAttr(record, 'code')] = getAttr(record, 'name').replace('_', '-')
+                        except: #--all but the anti-corruption (soc) feed use the name attribute
+                            try: relationCodes[getAttr(record, 'code')] = getValue(record).replace('_', '-')
+                            except:
+                                print(minidom.parseString(etree.tostring(record, 'utf-8')).toprettyxml(indent="\t"))
                     node.clear()
                         
                 elif node.tag == 'Associations':
@@ -859,10 +882,20 @@ if __name__ == "__main__":
     
     #--go through a second time to process the records
     print('')
-    print('processing records ...')
+    if dj_profile_id:
+        print('searching for %s ...' % dj_profile_id)
+    else:
+        print('processing records ...')
     xmlReader = etree.iterparse(inputFileName, events=("start", "end"))
     for event, node in xmlReader:
         if event == 'end' and node.tag in ('Person','Entity'):
+            if shutDown: 
+                break
+
+            if dj_profile_id and node.attrib['id'] != dj_profile_id:
+                node.clear()
+                continue
+
             if debugLevel in (1,2):
                 print('='*50)
                 print(minidom.parseString(etree.tostring(node, 'utf-8')).toprettyxml(indent="\t"))
@@ -883,13 +916,17 @@ if __name__ == "__main__":
                 print(json.dumps(jsonData, ensure_ascii=False, indent=4))
                 pause()
 
-            try: outputFileHandle.write(msg + '\n')
-            except IOError as err:
-                print('')
-                print('Could not write to %s' % outputFileName)
-                print(' %s' % err)
-                print('')
-                shutDown = True
+            if outputFileName:
+                try: outputFileHandle.write(msg + '\n')
+                except IOError as err:
+                    print('')
+                    print('Could not write to %s' % outputFileName)
+                    print(' %s' % err)
+                    print('')
+                    shutDown = True
+
+            if dj_profile_id and node.attrib['id'] == dj_profile_id:
+                break
 
             node.clear()
  
@@ -900,7 +937,8 @@ if __name__ == "__main__":
             if recordCnt % progressInterval == 0:
                 print('%s rows processed' % recordCnt)
         
-    outputFileHandle.close()
+    if outputFileName:
+        outputFileHandle.close()
     
     print('%s rows processed, completed!' % recordCnt)
     print('%s persons' % personCnt)

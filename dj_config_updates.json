@@ -43,4 +43,3 @@ addFeature  {"feature": "MARIJUANA_LICENSE", "class": "ISSUED_ID", "behavior": "
 addAttribute {"attribute": "MARIJUANA_LICENSE_NUMBER", "class": "IDENTIFIER", "feature": "MARIJUANA_LICENSE", "element": "ID_NUM", "required": "Yes", "default": "", "advanced": "No", "internal": "No"}
 
 save
-updateDatabase

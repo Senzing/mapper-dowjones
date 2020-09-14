@@ -576,7 +576,7 @@ def g2Mapping(masterRecord, recordType):
         for occTitle in roleRecord.findall('OccTitle'):
             itemNum += 1
             fromDate = concatDateParts(getAttr(occTitle, 'SinceDay'), getAttr(occTitle, 'SinceMonth'), getAttr(occTitle, 'SinceYear'))
-            thruDate = concatDateParts(getAttr(occTitle, 'ToDay'), getAttr(occTitle, 'ToMonth'), getAttr(occTitle, 'SinceYear'))
+            thruDate = concatDateParts(getAttr(occTitle, 'ToDay'), getAttr(occTitle, 'ToMonth'), getAttr(occTitle, 'ToYear'))
             thisRole = getValue(occTitle)
             if fromDate:
                 thisRole += ' From ' + fromDate
@@ -589,7 +589,13 @@ def g2Mapping(masterRecord, recordType):
     itemNum = 0
     for referenceRecord in masterRecord.findall('SanctionsReferences/Reference'):
         itemNum += 1
-        referenceName = referenceCodes[getValue(referenceRecord)]
+        referenceName = '%s=%s' % (getValue(referenceRecord), referenceCodes[getValue(referenceRecord)])
+        fromDate = concatDateParts(getAttr(referenceRecord, 'SinceDay'), getAttr(referenceRecord, 'SinceMonth'), getAttr(referenceRecord, 'SinceYear'))
+        thruDate = concatDateParts(getAttr(referenceRecord, 'ToDay'), getAttr(referenceRecord, 'ToMonth'), getAttr(referenceRecord, 'ToYear'))
+        if fromDate:
+            referenceName += ' From ' + fromDate
+        if thruDate:
+            referenceName += ' To ' + thruDate
         jsonData["Reference%s" % itemNum] = referenceName
         updateStat('OTHER', 'REFERENCES', referenceName)
         

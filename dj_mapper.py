@@ -632,6 +632,9 @@ def g2Mapping(masterRecord, recordType):
         for relationship in relationships[thisId]:
             otherId = relationship['id']
             relType = relationCodes[relationship['code']].replace(' ', '_').replace('-','_')
+            if relationship['ex'] == 'Yes':
+                relType = 'EX_' + relType
+
 
             thisRecord = {}
             if noRelationships:
@@ -844,12 +847,12 @@ if __name__ == "__main__":
                         id = getAttr(record, 'id')
                         relationships[id] = []
                         for record1 in record.findall('Associate'):
-                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code')})
+                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code'), 'ex': getAttr(record1, 'ex')})
                     for record in node.findall('SpecialEntity'):
                         id = getAttr(record, 'id')
                         relationships[id] = []
                         for record1 in record.findall('Associate'):
-                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code')})
+                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code'), 'ex': getAttr(record1, 'ex')})
                     node.clear()
             
                 elif node.tag == 'Entity':

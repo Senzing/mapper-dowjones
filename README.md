@@ -7,8 +7,16 @@ The [dj_mapper.py](dj_mapper.py) python script converts Dow Jones Watch list fil
 - Risk and Compliance database (PFA)
 - High Risk File or (HRF)
 - Adverse Media Entities (AME)
+- State owned companies (SOC) *format not supported!*
+- Trifecta (includes PFA, AME and SOC)
 
 If you subscribe to any of these Dow Jones feeds, you will have instructions from them on how to login and download monthly or daily files.  The idea is that you periodically refresh their full file and perform daily updates on top of it.
+
+*Trifecta Notes:* 
+- If you download the Trifecta file, there is no need to download and map the individual files it contains.  
+- Since the standalone SOC format is not supported, the Trifecta file is the only way to map and load it into Senzing.
+- Since the mapper only allows one data source code per file, you can specify "-d DJ-PFA" on the command line.  If you want to use another code that is fine, but you will need to register it in the [dj_config_updates.json](dj_config_updates.json) file.
+- Since the Trifecta file does not include the HRF file, you must map and load that separately if you want it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the
 [dj_config_updates.json](dj_config_updates.json) file.

@@ -619,7 +619,7 @@ def g2Mapping(masterRecord, recordType):
 
     #--disclosed relationships
     thisList = []
-    thisId = jsonData['RECORD_ID']
+    thisId = jsonData['DJ_PROFILE_ID']
     if thisId in relationships:
 
         if relationshipStyle == 2: 
@@ -710,7 +710,7 @@ if __name__ == "__main__":
     argparser.add_argument('-o', '--output_file', default=os.getenv('output_file', None), type=str, help='output filename, defaults to input file name with a .json extension.')
     argparser.add_argument('-l', '--log_file', default=os.getenv('log_file', None), type=str, help='optional statistics filename (json format).')
     argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA, DJ-HRF or DJ-AME based on the type of file.')
-    argparser.add_argument('-r', '--relationship_style', dest='relationship_style', type=int, default=os.getenv('data_source', 2), help='styles: 0=None, 1=Legacy linking, 2=Pointers (new for Senzing v1.15)')
+    argparser.add_argument('-r', '--relationship_style', dest='relationship_style', type=int, default=2, help='styles: 0=None, 1=Legacy linking, 2=Pointers (new for Senzing v1.15)')
     argparser.add_argument('-e', '--extended_format', dest='extended_format', action='store_true', default=False, help='include profile notes, sources, and images')
     argparser.add_argument('-D', '--debug_level', dest='debug_level', type=int, default=0, help='debug options: 1=Show XML only, 2=Show XML and JSON')
     argparser.add_argument('-L', '--lookup_profile', dest='dj_profile_id', type=str, help='enter a DJ profile ID to lookup for debugging purposes')

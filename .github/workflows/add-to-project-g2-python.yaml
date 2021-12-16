@@ -18,5 +18,5 @@ jobs:
     - name: Assign issues to project
       uses: Senzing/github-action-add-issue-to-project@main
       with:
-        project: 'https://github.com/orgs/Senzing/projects/9'
+        project: 'https://github.com/orgs/Senzing/projects/8'
         column_name: 'Backlog'

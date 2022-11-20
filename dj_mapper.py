@@ -702,9 +702,8 @@ def g2Mapping(masterRecord, recordType):
         jsonData['RELATIONSHIPS'] = thisList
         
     #--assign the entity and record type
-    jsonData['ENTITY_TYPE'] = recordType.upper()                                                                                                                                
     jsonData['RECORD_TYPE'] = recordType.upper()
-    updateStat('ENTITY_TYPE', jsonData['ENTITY_TYPE'])
+    updateStat('RECORD_TYPE', jsonData['RECORD_TYPE'])
 
     if truncation_list:
         jsonData['truncations'] = truncation_list

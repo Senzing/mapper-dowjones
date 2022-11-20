@@ -1,0 +1,20 @@
+addDataSource DJ-PFA
+addDataSource DJ-HRF
+addDataSource DJ-AME
+
+templateAdd {"feature": "DJ_PROFILE_ID", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
+templateAdd {"feature": "OFAC_ID", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+templateAdd {"feature": "NCIC_NUMBER", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+templateAdd {"feature": "CRD_NUMBER", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+templateAdd {"feature": "ISIN_NUMBER", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+templateAdd {"feature": "COMPANY_ID", "template": "country_id", "behavior": "F1"}
+templateAdd {"feature": "MSB_LICENSE_NUMBER", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+templateAdd {"feature": "MARIJUANA_LICENSE_NUMBER", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+templateAdd {"feature": "AIRCRAFT_CONSTRUCTION_NUM", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
+templateAdd {"feature": "AIRCRAFT_MFG_SERIAL_NUM", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
+templateAdd {"feature": "AIRCRAFT_TAIL_NUM", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
+templateAdd {"feature": "IMO_NUMBER", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
+templateAdd {"feature": "MMSI_NUMBER", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
+templateAdd {"feature": "CALL_SIGN", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}
+
+save

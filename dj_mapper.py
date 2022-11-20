@@ -174,6 +174,8 @@ def concatDateParts(day, month, year):
 #----------------------------------------
 def g2Mapping(masterRecord, recordType):
 
+    truncation_list = []
+
     #--header
     jsonData = {}
     jsonData['DATA_SOURCE'] = dataSource
@@ -227,40 +229,45 @@ def g2Mapping(masterRecord, recordType):
             nameOrg = getValue(nameValue, 'EntityName')
             if nameOrg:
                 if len(nameOrg.split()) > 16:
-                    updateStat('TRUNCATIONS', 'longNameOrgCnt', nameOrg)
+                    truncation_list.append({"EntityName": nameOrg})
+                    updateStat('TRUNCATIONS', 'longNameOrgCnt', jsonData['RECORD_ID'] + ' | ' + nameOrg)
                     nameOrg = ' '.join(nameOrg.split()[:16])
                 name['NAME_ORG'] = nameOrg
                 nameStr = nameOrg
 
             nameLast = getValue(nameValue, 'Surname')
             if nameLast:
-                if len(nameLast.split()) > 5:
-                    updateStat('TRUNCATIONS', 'longNameLastCnt', nameLast)
-                    nameLast = ' '.join(nameLast.split()[:5])
+                if len(nameLast.split()) > 10:
+                    truncation_list.append({"Surname": nameLast})
+                    updateStat('TRUNCATIONS', 'longNameLastCnt', jsonData['RECORD_ID'] + ' | ' + nameLast)
+                    nameLast = ' '.join(nameLast.split()[:10])
                 name['NAME_LAST'] = nameLast
                 nameStr = nameLast
 
             nameMaiden = getValue(nameValue, 'MaidenName')
             if nameMaiden and not nameLast:  #--either Surname or MaidenName will be populated
-                if len(nameMaiden.split()) > 5:
-                    updateStat('TRUNCATIONS', 'longNameMaidenCnt', nameMaiden)
-                    nameMaiden = ' '.join(nameMaiden.split()[:5])
+                if len(nameMaiden.split()) > 10:
+                    truncation_list.append({"MaidenName": nameMaiden})
+                    updateStat('TRUNCATIONS', 'longNameMaidenCnt', jsonData['RECORD_ID'] + ' | ' + nameMaiden)
+                    nameMaiden = ' '.join(nameMaiden.split()[:10])
                 name['NAME_LAST'] = nameMaiden
                 nameStr = nameLast
 
             nameFirst = getValue(nameValue, 'FirstName')
             if nameFirst:
-                if len(nameFirst.split()) > 5:
-                    updateStat('TRUNCATIONS', 'longNameFirstCnt', nameFirst)
-                    nameFirst = ' '.join(nameFirst.split()[:5])
+                if len(nameFirst.split()) > 10:
+                    truncation_list.append({"FirstName": nameFirst})
+                    updateStat('TRUNCATIONS', 'longNameFirstCnt', jsonData['RECORD_ID'] + ' | ' + nameFirst)
+                    nameFirst = ' '.join(nameFirst.split()[:10])
                 name['NAME_FIRST'] = nameFirst
                 nameStr += (' '+nameFirst)
 
             nameMiddle = getValue(nameValue, 'MiddleName')
             if nameMiddle:
-                if len(nameMiddle.split()) > 5:
-                    updateStat('TRUNCATIONS', 'longNameMiddleCnt', nameMiddle)
-                    nameMiddle = ' '.join(nameMiddle.split()[:5])
+                if len(nameMiddle.split()) > 10:
+                    truncation_list.append({"MiddleName": nameMiddle})
+                    updateStat('TRUNCATIONS', 'longNameMiddleCnt', jsonData['RECORD_ID'] + ' | ' + nameMiddle)
+                    nameMiddle = ' '.join(nameMiddle.split()[:10])
                 name['NAME_MIDDLE'] = nameMiddle
                 nameStr += (' '+nameMiddle)
 
@@ -284,6 +291,15 @@ def g2Mapping(masterRecord, recordType):
                 updateStat('NAME_TYPE', 'OriginalScriptName')
                 name['NAME_TYPE'] = 'OriginalScriptName'
                 name['NAME_FULL'] = originalScriptName
+                thisList.append(name)
+
+            #--duplicate this name segment for SingleStringName if supplied
+            singleStringName = getValue(nameValue, 'SingleStringName')
+            if singleStringName:
+                name = {}
+                updateStat('NAME_TYPE', 'singleStringName')
+                name['NAME_TYPE'] = 'singleStringName'
+                name['NAME_FULL'] = singleStringName
                 thisList.append(name)
             
     if thisList:
@@ -345,7 +361,8 @@ def g2Mapping(masterRecord, recordType):
         addrLine = getValue(addrRecord, 'AddressLine')
         if addrLine:
             if len(addrLine.split()) > 16:
-                updateStat('TRUNCATIONS', 'longAddrLineCnt', addrLine)
+                truncation_list.append({"AddressLine": addrLine})
+                updateStat('TRUNCATIONS', 'longAddrLineCnt', jsonData['RECORD_ID'] + ' | ' + addrLine)
                 addrLine = ' '.join(addrLine.split()[:16])
             address['ADDR_LINE1'] = addrLine
         addrCity = getValue(addrRecord, 'AddressCity')
@@ -499,7 +516,7 @@ def g2Mapping(masterRecord, recordType):
             elif idType.upper() == 'OTHERS' and idNotes.upper() == 'MMSI':
                 attrType1 = 'MMSI_NUMBER'
             elif '(MSN)' in idType.upper():
-                attrType1 = 'AIRCRAFT_MSN'
+                attrType1 = 'AIRCRAFT_MFG_SERIAL_NUM'
             elif idType.upper() == 'OTHERS' and 'AIRCRAFT TAIL NUMBER' in idNotes.upper():
                 attrType1 = 'AIRCRAFT_TAIL_NUMBER'
             else:
@@ -689,6 +706,9 @@ def g2Mapping(masterRecord, recordType):
     jsonData['RECORD_TYPE'] = recordType.upper()
     updateStat('ENTITY_TYPE', jsonData['ENTITY_TYPE'])
 
+    if truncation_list:
+        jsonData['truncations'] = truncation_list
+
     #--add composite keys
     if addCompositeKeys:
         jsonData = baseLibrary.jsonUpdater(jsonData)
@@ -744,17 +764,8 @@ if __name__ == "__main__":
         sys.exit(1)
     
     #--default and validate the data source
-    if not dataSource and 'PFA' in inputFileName.upper():
-        dataSource = 'DJ-PFA'
-    elif not dataSource and 'HRF' in inputFileName.upper():
-        dataSource = 'DJ-HRF'
-    elif not dataSource and 'AME' in inputFileName.upper():                                                                                                                     
-         dataSource = 'DJ-AME'
     if not dataSource:
-        print('')
-        print('Please specify a data source as it could not be determined from the file name.')
-        print('')
-        sys.exit(1)
+        dataSource = 'DJ-PFA'
     else:
         dataSource = dataSource.upper()
         

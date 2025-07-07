@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+test = ["pytest", "coverage"]
+
+[tool.bandit]
+skips = ["B101"]
+
+[tool.black]
+line-length = 120
+
+[tool.flake8]
+extend-ignore = ["E203", "E704"]
+max-line-length = 120
+
+[tool.isort]
+profile = "black"
+src_paths = ["examples", "src", "tests"]
+
+[tool.pylint]
+ignored-argument-names = "args|kwargs"
+disable = [
+    "consider-using-with",
+    "invalid-name",
+    "line-too-long",
+    "too-many-branches",
+    "too-many-lines",
+    "too-many-statements",
+    "unspecified-encoding",
+]
+good-names = [
+    "mapper-equifax"
+]
+ignore = [
+    "__init__.py",
+    "docs/source/conf.py"
+]
+notes = [
+    "FIXME"
+]

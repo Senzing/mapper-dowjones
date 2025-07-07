@@ -145,8 +145,8 @@ Watch lists are harder to match simply because often the only data they contain 
 - GROUP_ASSOCIATION_ORG_NAME (employers and other group affiliations)
 
 [Configuring Senzing]: #configuring-senzing
-[dj_config_updates.json]: dj_config_updates.json
-[dj_mapper.py]: dj_mapper.py
+[dj_config_updates.json]: src/dj_config_updates.json
+[dj_mapper.py]: src/dj_mapper.py
 [Installation]: #installation
 [Loading into Senzing]: #loading-into-senzing
 [Mapping other data sources]: #mapping-other-data-sources

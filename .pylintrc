@@ -29,6 +29,7 @@ disable=
     unused-import,
     unused-variable,
     useless-return,
+    broad-exception-caught,
 good-names=
     template-python
 ignore=

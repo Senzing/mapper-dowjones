@@ -1,6 +1,4 @@
-addDataSource DJ-PFA
-addDataSource DJ-HRF
-addDataSource DJ-AME
+addDataSource DJ-TRI
 
 templateAdd {"feature": "DJ_PROFILE_ID", "template": "global_id", "behavior": "F1E", "comparison": "exact_comp"}
 templateAdd {"feature": "OFAC_ID", "template": "global_id", "behavior": "F1", "comparison": "exact_comp"}

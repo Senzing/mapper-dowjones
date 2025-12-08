@@ -16,16 +16,16 @@ _Trifecta Notes:_
 
 - If you download the Trifecta file, there is no need to download and map the individual files it contains.
 - Since the standalone SOC format is not supported, the Trifecta file is the only way to map and load it into Senzing.
-- Since the mapper only allows one data source code per file, you can specify "-d DJ-PFA" on the command line. If you want to use another code that is fine, but you will need to register it in the [dj_config_updates.json] file.
+- Since the mapper only allows one data source code per file, you can specify "-d DJ-TRI" on the command line. If you want to use another code that is fine, but you will need to register it in the [dj_config_updates.g2c] file.
 - Since the Trifecta file does not include the HRF file, you must map and load that separately if you want it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the
-[dj_config_updates.json] file.
+[dj_config_updates.g2c] file.
 
 Usage:
 
 ```console
-python dj_mapper.py --help
+python src/dj_mapper.py --help
 usage: dj_mapper.py [-h] [-i INPUT_FILE] [-o OUTPUT_FILE] [-l LOG_FILE]
                     [-d DATA_SOURCE] [-r RELATIONSHIP_STYLE] [-e]
 
@@ -39,7 +39,7 @@ optional arguments:
   -l LOG_FILE, --log_file LOG_FILE
                         optional statistics filename (json format).
   -d DATA_SOURCE, --data_source DATA_SOURCE
-                        please use DJ-PFA, DJ-HRF or DJ-AME based on the type of file.
+                        defaults to DJ-TRI for Trifecta files.
   -r RELATIONSHIP_STYLE, --relationship_style RELATIONSHIP_STYLE
                         styles: 0=None, 1=Legacy linking, 2=Pointers (new for
                         Senzing v1.15)
@@ -58,16 +58,16 @@ optional arguments:
 
 ### Prerequisites
 
-- python 3.6 or higher
-- Senzing API version 1.13 or higher
+- Python 3.9 or higher
+- Senzing 3.0 or higher
 - [Senzing/mapper-base]
 
 ### Installation
 
-Place the the following files on a directory of your choice ...
+Place the following files on a directory of your choice ...
 
-- [dj_mapper.py]
-- [dj_config_updates.json]
+- [src/dj_mapper.py]
+- [src/dj_config_updates.g2c]
 
 _Note: Since the mapper-base project referenced above is required by this mapper, it is necessary to place them in a common directory structure like so ..._
 
@@ -89,12 +89,12 @@ _Note:_ This only needs to be performed one time! In fact you may want to add th
 From the /opt/senzing/g2/python directory ...
 
 ```console
-python3 G2ConfigTool.py <path-to-file>/dj_config_updates.json
+python3 G2ConfigTool.py <path-to-file>/dj_config_updates.g2c
 ```
 
 This will step you through the process of adding the data sources, entity types, features, attributes and other settings needed to load this watch list data into Senzing. After each command you will see a status message saying "success" or "already exists". For instance, if you run the script twice, the second time through they will all say "already exists" which is OK.
 
-see [dj_config_updates.json] for a list of configuration updates required.
+see [dj_config_updates.g2c] for a list of configuration updates required.
 
 ### Running the mapper
 
@@ -109,7 +109,7 @@ It is good practice to keep a history of these files on a directory where you wi
 Second, run the mapper. Example usage:
 
 ```console
-python3 dj_mapper.py -i ./input/PFA2_201303312200_F.xml -o ./output/PFA2_201303312200_F.json -l pfa_stats.json
+python3 src/dj_mapper.py -i ./input/PFA2_201303312200_F.xml -o ./output/PFA2_201303312200_F.json -l pfa_stats.json
 ```
 
 The output file defaults to the same name and location as the input file and a .json extension is added.
@@ -130,7 +130,7 @@ If you use the G2Loader program to load your data, from the /opt/senzing/g2/pyth
 python3 G2Loader.py -f /mapper_dowjones/output/PFA2_201902282200_F.json
 ```
 
-The PFA data set currently contains about 2.4 million records and make take a few hours to load depending on your hardware. The HRF data set only contains about 70k records and loads in a few minutes.
+The PFA data set currently contains about 2.4 million records and may take a few hours to load depending on your hardware. The HRF data set only contains about 70k records and loads in a few minutes.
 
 If you use the API directly, then you just need to perform an process() or addRecord() for each line of the file.
 
@@ -145,8 +145,10 @@ Watch lists are harder to match simply because often the only data they contain 
 - GROUP_ASSOCIATION_ORG_NAME (employers and other group affiliations)
 
 [Configuring Senzing]: #configuring-senzing
-[dj_config_updates.json]: src/dj_config_updates.json
+[dj_config_updates.g2c]: src/dj_config_updates.g2c
 [dj_mapper.py]: src/dj_mapper.py
+[src/dj_config_updates.g2c]: src/dj_config_updates.g2c
+[src/dj_mapper.py]: src/dj_mapper.py
 [Installation]: #installation
 [Loading into Senzing]: #loading-into-senzing
 [Mapping other data sources]: #mapping-other-data-sources

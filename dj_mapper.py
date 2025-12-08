@@ -1,150 +1,199 @@
 #! /usr/bin/env python3
 
-import os
-import sys
 import argparse
-import signal
-import time
-from datetime import datetime, timedelta
-import xml.etree.ElementTree as etree
-import xml.dom.minidom as minidom
 import json
+import os
 import random
 import re
+import signal
+import sys
+import time
+import xml.dom.minidom as minidom
 
-#--import the base mapper library and variants
-try: 
+# import xml.etree.ElementTree as etree
+import xml.etree.cElementTree as etree
+from datetime import datetime, timedelta
+
+# --import the base mapper library and variants
+try:
     import base_mapper
-except: 
-    print('')
-    print('Please export PYTHONPATH=$PYTHONPATH:<path to mapper-base project>')
-    print('')
+except:
+    print("")
+    print("Please export PYTHONPATH=$PYTHONPATH:<path to mapper-base project>")
+    print("")
     sys.exit(1)
-baseLibrary = base_mapper.base_library(os.path.abspath(base_mapper.__file__).replace('base_mapper.py','base_variants.json'))
+baseLibrary = base_mapper.base_library(
+    os.path.abspath(base_mapper.__file__).replace("base_mapper.py", "base_variants.json")
+)
 if not baseLibrary.initialized:
     sys.exit(1)
 
-#----------------------------------------
-def pause(question='PRESS ENTER TO CONTINUE ...'):
-    """ pause for debug purposes """
-    try: response = input(question)
+
+# ----------------------------------------
+def pause(question="PRESS ENTER TO CONTINUE ..."):
+    """pause for debug purposes"""
+    try:
+        response = input(question)
     except KeyboardInterrupt:
         response = None
         global shutDown
         shutDown = True
     return response
 
-#----------------------------------------
+
+# ----------------------------------------
 def signal_handler(signal, frame):
-    print('USER INTERUPT! Shutting down ... (please wait)')
+    print("USER INTERUPT! Shutting down ... (please wait)")
     global shutDown
     shutDown = True
     return
-        
-#----------------------------------------
-def updateStat(cat1, cat2, example = None):
+
+
+# ----------------------------------------
+def updateStat(cat1, cat2, example=None):
     if cat1 not in statPack:
         statPack[cat1] = {}
     if cat2 not in statPack[cat1]:
         statPack[cat1][cat2] = {}
-        statPack[cat1][cat2]['count'] = 0
+        statPack[cat1][cat2]["count"] = 0
 
-    statPack[cat1][cat2]['count'] += 1
+    statPack[cat1][cat2]["count"] += 1
     if example:
-        if 'examples' not in statPack[cat1][cat2]:
-            statPack[cat1][cat2]['examples'] = []
-        if example not in statPack[cat1][cat2]['examples']:
-            if len(statPack[cat1][cat2]['examples']) < 5:
-                statPack[cat1][cat2]['examples'].append(example)
+        if "examples" not in statPack[cat1][cat2]:
+            statPack[cat1][cat2]["examples"] = []
+        if example not in statPack[cat1][cat2]["examples"]:
+            if len(statPack[cat1][cat2]["examples"]) < 5:
+                statPack[cat1][cat2]["examples"].append(example)
             else:
-                randomSampleI = random.randint(2,4)
-                statPack[cat1][cat2]['examples'][randomSampleI] = example
+                randomSampleI = random.randint(2, 4)
+                statPack[cat1][cat2]["examples"][randomSampleI] = example
     return
 
-#----------------------------------------
-def getAttr (segment, tagName):
-    """ get an xml element text value """
-    try: value = segment.attrib[tagName]
-    except: value = None
-    else: 
+
+# ----------------------------------------
+def getAttr(segment, tagName):
+    """get an xml element text value"""
+    try:
+        value = segment.attrib[tagName]
+    except:
+        value = None
+    else:
         if len(value) == 0:
             value = None
     return value
 
-#----------------------------------------
-def getValue (segment, tagName = None):
-    """ get an xml element text value """
-    try: 
-        if tagName: 
+
+# ----------------------------------------
+def getValue(segment, tagName=None):
+    """get an xml element text value"""
+    try:
+        if tagName:
             value = segment.find(tagName).text.strip()
         else:
             value = segment.text.strip()
-    except: value = None
-    else: 
+    except:
+        value = None
+    else:
         if len(value) == 0:
             value = None
     return value
 
-#----------------------------------------
+
+# ----------------------------------------
 def idNoteParse(notes, codeType):
 
-    #--check if enclosed in parens
-    notes = notes.lower().replace('.','')
-    groupedStrings = re.findall('\(.*?\)',notes)
+    # --check if enclosed in parens
+    notes = notes.lower().replace(".", "")
+    groupedStrings = re.findall("\(.*?\)", notes)
     for maybeCountry in groupedStrings:
-        maybeCountry = maybeCountry[1:len(maybeCountry)-1]
-        isoCountry = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+        maybeCountry = maybeCountry[1 : len(maybeCountry) - 1]
+        isoCountry = (
+            baseLibrary.isoCountryCode(maybeCountry)
+            if codeType == "country"
+            else baseLibrary.isoStateCode(maybeCountry)
+        )
         if isoCountry:
             return isoCountry
-        elif ',' in maybeCountry:
-            countryName = maybeCountry[maybeCountry.find(',')+1:].strip()
-            isoCountry = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+        elif "," in maybeCountry:
+            countryName = maybeCountry[maybeCountry.find(",") + 1 :].strip()
+            isoCountry = (
+                baseLibrary.isoCountryCode(maybeCountry)
+                if codeType == "country"
+                else baseLibrary.isoStateCode(maybeCountry)
+            )
             if isoCountry:
                 return isoCountry
 
-    #--look for various labels
+    # --look for various labels
     tokenList = []
-    if 'country of issue:' in notes:
-        tokenList = notes[notes.find('country of issue:')+17:].strip().split()
-    else:  #or try the whole string
+    if "country of issue:" in notes:
+        tokenList = notes[notes.find("country of issue:") + 17 :].strip().split()
+    else:  # or try the whole string
         tokenList = notes.strip().split()
 
-    #--if single token (just confirm or deny)
+    # --if single token (just confirm or deny)
     if len(tokenList) == 1:
-        if tokenList[0][-1] in (',', ';', ':'):
+        if tokenList[0][-1] in (",", ";", ":"):
             tokenList[0] = tokenList[0][0:-1]
         maybeCountry = tokenList[0]
-        isoCountry = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+        isoCountry = (
+            baseLibrary.isoCountryCode(maybeCountry)
+            if codeType == "country"
+            else baseLibrary.isoStateCode(maybeCountry)
+        )
         if isoCountry:
             return isoCountry
-        else: 
+        else:
             return None
 
-    priorToken1 = ''
-    priorToken2 = ''
-    priorToken3 = ''
-    maybeCountry = ''
+    priorToken1 = ""
+    priorToken2 = ""
+    priorToken3 = ""
+    maybeCountry = ""
     for currentToken in tokenList:
-        if currentToken[-1] in (',', ';', ':'):
-            currentToken = currentToken[0:-1] 
+        if currentToken[-1] in (",", ";", ":"):
+            currentToken = currentToken[0:-1]
 
         maybeCountry = currentToken
-        isoCountry0 = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+        isoCountry0 = (
+            baseLibrary.isoCountryCode(maybeCountry)
+            if codeType == "country"
+            else baseLibrary.isoStateCode(maybeCountry)
+        )
         isoCountry1 = None
         isoCountry2 = None
         isoCountry3 = None
 
         if priorToken1:
-            maybeCountry = priorToken1 + ' ' + currentToken
-            isoCountry1 = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+            maybeCountry = priorToken1 + " " + currentToken
+            isoCountry1 = (
+                baseLibrary.isoCountryCode(maybeCountry)
+                if codeType == "country"
+                else baseLibrary.isoStateCode(maybeCountry)
+            )
         if priorToken2:
-            maybeCountry = priorToken2 + ' ' + priorToken1 + ' ' + currentToken
-            isoCountry2 = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+            maybeCountry = priorToken2 + " " + priorToken1 + " " + currentToken
+            isoCountry2 = (
+                baseLibrary.isoCountryCode(maybeCountry)
+                if codeType == "country"
+                else baseLibrary.isoStateCode(maybeCountry)
+            )
         if priorToken3:
-            maybeCountry = priorToken3 + ' ' + priorToken2 + ' ' + priorToken1 + ' ' + currentToken
-            isoCountry3 = baseLibrary.isoCountryCode(maybeCountry) if codeType == 'country' else baseLibrary.isoStateCode(maybeCountry)
+            maybeCountry = priorToken3 + " " + priorToken2 + " " + priorToken1 + " " + currentToken
+            isoCountry3 = (
+                baseLibrary.isoCountryCode(maybeCountry)
+                if codeType == "country"
+                else baseLibrary.isoStateCode(maybeCountry)
+            )
 
-        if isoCountry0 and currentToken not in ('id', 'in','is','on','no','and'):  #--careful of connecting words here!
+        if isoCountry0 and currentToken not in (
+            "id",
+            "in",
+            "is",
+            "on",
+            "no",
+            "and",
+        ):  # --careful of connecting words here!
             return isoCountry0
         elif isoCountry1:
             return isoCountry1
@@ -159,49 +208,57 @@ def idNoteParse(notes, codeType):
 
     return None
 
-#----------------------------------------
+
+# ----------------------------------------
 def concatDateParts(day, month, year):
-    #--15-mar-2010 is format
-    fullDate = ''
+    # --15-mar-2010 is format
+    fullDate = ""
     if day:
-        fullDate += day + '-'
+        fullDate += day + "-"
     if month:
-        fullDate += month + '-'
+        fullDate += month + "-"
     if year:
         fullDate += year
     return fullDate
 
-#----------------------------------------
+
+# ----------------------------------------
 def g2Mapping(masterRecord, recordType):
 
     truncation_list = []
 
-    #--header
-    jsonData = {}
-    jsonData['DATA_SOURCE'] = dataSource
-    jsonData['RECORD_ID'] = masterRecord.attrib['id']
-    
-    jsonData['LAST_UPDATE'] = masterRecord.attrib['date']
-    jsonData['STATUS'] = getValue(masterRecord, 'ActiveStatus')
-    jsonData['DJ_PROFILE_ID'] = masterRecord.attrib['id']
+    # --header
+    json_data = {}
+    json_data["DATA_SOURCE"] = dataSource
+    json_data["RECORD_ID"] = masterRecord.attrib["id"]
+    json_data["RECORD_TYPE"] = recordType.upper()
+    if recordType == "PERSON":
+        name_attr = "NAME_FULL"
+    else:
+        name_attr = "NAME_ORG"
+    updateStat("RECORD_TYPE", json_data["RECORD_TYPE"])
 
-    gender = getValue(masterRecord, 'Gender')
+    json_data["LAST_UPDATE"] = masterRecord.attrib["date"]
+    json_data["STATUS"] = getValue(masterRecord, "ActiveStatus")
+    json_data["DJ_PROFILE_ID"] = masterRecord.attrib["id"]
+
+    gender = getValue(masterRecord, "Gender")
     if gender:
-        jsonData['GENDER'] = gender
-        updateStat('ATTRIBUTE', 'GENDER')
+        json_data["GENDER"] = gender
+        updateStat("ATTRIBUTE", "GENDER")
 
-    deceased = getValue(masterRecord, 'Deceased')
-    if deceased == 'Yes':
-        jsonData['DECEASED'] = deceased
-        updateStat('OTHER', 'DECEASED', deceased)
-    
+    deceased = getValue(masterRecord, "Deceased")
+    if deceased == "Yes":
+        json_data["DECEASED"] = deceased
+        updateStat("OTHER", "DECEASED", deceased)
+
     if extendedFormat:
-        profileNotes = getValue(masterRecord, 'ProfileNotes')
+        profileNotes = getValue(masterRecord, "ProfileNotes")
         if profileNotes:
-            jsonData['PROFILE_NOTES'] = profileNotes
-            updateStat('ATTRIBUTE', 'PROFILE_NOTES')
+            json_data["PROFILE_NOTES"] = profileNotes
+            updateStat("ATTRIBUTE", "PROFILE_NOTES")
 
-    #--names
+    # --names
     # <NameType NameTypeID="1" RecordType="Person">Primary Name</NameType>
     # <NameType NameTypeID="2" RecordType="Person">Also Known As</NameType>
     # <NameType NameTypeID="3" RecordType="Person">Low Quality AKA</NameType>
@@ -215,506 +272,537 @@ def g2Mapping(masterRecord, recordType):
     # <NameType NameTypeID="11" RecordType="Entity">Low Quality AKA</NameType>
     orgPersonNameConflict = False
     thisList = []
-    for nameRecord in masterRecord.findall('NameDetails/Name'):
-        nameType = nameRecord.attrib['NameType'][0:25]
-        if 'PRIMARY' in nameType.upper():
-            nameType = 'PRIMARY'
+    for nameRecord in masterRecord.findall("NameDetails/Name"):
+        nameType = nameRecord.attrib["NameType"][0:25]
+        if "PRIMARY" in nameType.upper():
+            nameType = "PRIMARY"
 
-        for nameValue in nameRecord.findall('NameValue'):
-            nameStr = ''
+        for nameValue in nameRecord.findall("NameValue"):
             name = {}
-            name['NAME_TYPE'] = nameType
-            updateStat('NAME_TYPE', nameType)
+            name["NAME_TYPE"] = nameType
+            updateStat("NAME_TYPE", nameType)
 
-            nameOrg = getValue(nameValue, 'EntityName')
-            if nameOrg:
-                if len(nameOrg.split()) > 16:
-                    truncation_list.append({"EntityName": nameOrg})
-                    updateStat('TRUNCATIONS', 'longNameOrgCnt', jsonData['RECORD_ID'] + ' | ' + nameOrg)
-                    nameOrg = ' '.join(nameOrg.split()[:16])
-                name['NAME_ORG'] = nameOrg
-                nameStr = nameOrg
+            entityName = getValue(nameValue, "EntityName")
+            if entityName:
+                if len(entityName.split()) > 16:
+                    truncation_list.append({"EntityName": entityName})
+                    updateStat("TRUNCATIONS", "longNameOrgCnt", json_data["RECORD_ID"] + " | " + entityName)
+                    entityName = " ".join(entityName.split()[:16])
+                name[name_attr] = entityName
 
-            nameLast = getValue(nameValue, 'Surname')
+            nameLast = getValue(nameValue, "Surname")
             if nameLast:
                 if len(nameLast.split()) > 10:
                     truncation_list.append({"Surname": nameLast})
-                    updateStat('TRUNCATIONS', 'longNameLastCnt', jsonData['RECORD_ID'] + ' | ' + nameLast)
-                    nameLast = ' '.join(nameLast.split()[:10])
-                name['NAME_LAST'] = nameLast
-                nameStr = nameLast
+                    updateStat("TRUNCATIONS", "longNameLastCnt", json_data["RECORD_ID"] + " | " + nameLast)
+                    nameLast = " ".join(nameLast.split()[:10])
+                name["NAME_LAST"] = nameLast
 
-            nameMaiden = getValue(nameValue, 'MaidenName')
-            if nameMaiden and not nameLast:  #--either Surname or MaidenName will be populated
+            nameMaiden = getValue(nameValue, "MaidenName")
+            if nameMaiden and not nameLast:  # --either Surname or MaidenName will be populated
                 if len(nameMaiden.split()) > 10:
                     truncation_list.append({"MaidenName": nameMaiden})
-                    updateStat('TRUNCATIONS', 'longNameMaidenCnt', jsonData['RECORD_ID'] + ' | ' + nameMaiden)
-                    nameMaiden = ' '.join(nameMaiden.split()[:10])
-                name['NAME_LAST'] = nameMaiden
-                nameStr = nameLast
+                    updateStat("TRUNCATIONS", "longNameMaidenCnt", json_data["RECORD_ID"] + " | " + nameMaiden)
+                    nameMaiden = " ".join(nameMaiden.split()[:10])
+                name["NAME_LAST"] = nameMaiden
 
-            nameFirst = getValue(nameValue, 'FirstName')
+            nameFirst = getValue(nameValue, "FirstName")
             if nameFirst:
                 if len(nameFirst.split()) > 10:
                     truncation_list.append({"FirstName": nameFirst})
-                    updateStat('TRUNCATIONS', 'longNameFirstCnt', jsonData['RECORD_ID'] + ' | ' + nameFirst)
-                    nameFirst = ' '.join(nameFirst.split()[:10])
-                name['NAME_FIRST'] = nameFirst
-                nameStr += (' '+nameFirst)
+                    updateStat("TRUNCATIONS", "longNameFirstCnt", json_data["RECORD_ID"] + " | " + nameFirst)
+                    nameFirst = " ".join(nameFirst.split()[:10])
+                name["NAME_FIRST"] = nameFirst
 
-            nameMiddle = getValue(nameValue, 'MiddleName')
+            nameMiddle = getValue(nameValue, "MiddleName")
             if nameMiddle:
                 if len(nameMiddle.split()) > 10:
                     truncation_list.append({"MiddleName": nameMiddle})
-                    updateStat('TRUNCATIONS', 'longNameMiddleCnt', jsonData['RECORD_ID'] + ' | ' + nameMiddle)
-                    nameMiddle = ' '.join(nameMiddle.split()[:10])
-                name['NAME_MIDDLE'] = nameMiddle
-                nameStr += (' '+nameMiddle)
+                    updateStat("TRUNCATIONS", "longNameMiddleCnt", json_data["RECORD_ID"] + " | " + nameMiddle)
+                    nameMiddle = " ".join(nameMiddle.split()[:10])
+                name["NAME_MIDDLE"] = nameMiddle
 
-            namePrefix = getValue(nameValue, 'TitleHonorific')
+            namePrefix = getValue(nameValue, "TitleHonorific")
             if namePrefix:
-                name['NAME_PREFIX'] = namePrefix
-            nameSuffix = getValue(nameValue, 'Suffix')
+                name["NAME_PREFIX"] = namePrefix
+            nameSuffix = getValue(nameValue, "Suffix")
             if nameSuffix:
-                name['NAME_SUFFIX'] = nameSuffix
-            
+                name["NAME_SUFFIX"] = nameSuffix
+
             thisList.append(name)
-            
-            #--check for a name conflict
-            if (recordType == 'PERSON' and 'NAME_ORG' in name) or (recordType != 'PERSON' and 'NAME_LAST' in name):
+
+            # --check for a name conflict
+            if (recordType == "PERSON" and "NAME_ORG" in name) or (recordType != "PERSON" and "NAME_LAST" in name):
                 orgPersonNameConflict = True
 
-            #--duplicate this name segment for original script version if supplied
-            originalScriptName = getValue(nameValue, 'OriginalScriptName')
+            # --duplicate this name segment for original script version if supplied
+            originalScriptName = getValue(nameValue, "OriginalScriptName")
             if originalScriptName:
                 name = {}
-                updateStat('NAME_TYPE', 'OriginalScriptName')
-                name['NAME_TYPE'] = 'OriginalScriptName'
-                name['NAME_FULL'] = originalScriptName
+                updateStat("NAME_TYPE", "OriginalScriptName")
+                name["NAME_TYPE"] = "OriginalScriptName"
+                name[name_attr] = originalScriptName
                 thisList.append(name)
 
-            #--duplicate this name segment for SingleStringName if supplied
-            singleStringName = getValue(nameValue, 'SingleStringName')
+            # --duplicate this name segment for SingleStringName if supplied
+            singleStringName = getValue(nameValue, "SingleStringName")
             if singleStringName:
                 name = {}
-                updateStat('NAME_TYPE', 'singleStringName')
-                name['NAME_TYPE'] = 'singleStringName'
-                name['NAME_FULL'] = singleStringName
+                updateStat("NAME_TYPE", "singleStringName")
+                name["NAME_TYPE"] = "singleStringName"
+                name[name_attr] = singleStringName
                 thisList.append(name)
-            
+
     if thisList:
-        jsonData['NAMES'] = thisList
+        json_data["NAMES"] = thisList
     if orgPersonNameConflict:
-        print('warning: person and org names on record %s' % jsonData['RECORD_ID'])
-    
-    #--dates
+        print("warning: person and org names on record %s" % json_data["RECORD_ID"])
+
+    # --dates
     # <DateType Id="1" RecordType="Person" name="Date of Birth"/>
     # <DateType Id="2" RecordType="Person" name="Deceased Date"/>
     # <DateType Id="3" RecordType="Entity" name="Date of Registration"/>
     thisList = []
-    for dateRecord in masterRecord.findall('DateDetails/Date'):
+    for dateRecord in masterRecord.findall("DateDetails/Date"):
 
-        try: dateType = dateRecord.attrib['DateType']
-        except: #--all but the anti-corruption (SOC) feed use DateType 
-            try: dateType = dateRecord.attrib['DateTypeId']
+        try:
+            dateType = dateRecord.attrib["DateType"]
+        except:  # --all but the anti-corruption (SOC) feed use DateType
+            try:
+                dateType = dateRecord.attrib["DateTypeId"]
             except:
-                print('bad date record!')
-                print(minidom.parseString(etree.tostring(dateRecord, 'utf-8')).toprettyxml(indent="\t"))
+                print("bad date record!", json_data["RECORD_ID"])
+                print(minidom.parseString(etree.tostring(dateRecord, "utf-8")).toprettyxml(indent="\t"))
                 continue
- 
-        if dateType == 'Date of Birth':
-            dateType = 'DATE_OF_BIRTH'
-        elif dateType == 'Deceased Date':
-            dateType = 'DATE_OF_DEATH'
-        elif dateType == 'Date of Registration':
-            dateType = 'REGISTRATION_DATE'
 
-        for dateValue in dateRecord.findall('DateValue'):
-            day = getAttr(dateValue, 'Day')
-            month = getAttr(dateValue, 'Month')
-            year = getAttr(dateValue, 'Year')
+        if dateType == "Date of Birth":
+            dateType = "DATE_OF_BIRTH"
+        elif dateType == "Deceased Date":
+            dateType = "DATE_OF_DEATH"
+        elif dateType == "Date of Registration":
+            dateType = "REGISTRATION_DATE"
+
+        for dateValue in dateRecord.findall("DateValue"):
+            day = getAttr(dateValue, "Day")
+            month = getAttr(dateValue, "Month")
+            year = getAttr(dateValue, "Year")
             thisDate = concatDateParts(day, month, year)
-            if dateType == 'DATE_OF_BIRTH':
-                outputFormat = '%Y-%m-%d'
+            if dateType == "DATE_OF_BIRTH":
+                outputFormat = "%Y-%m-%d"
                 if not day and not month:
-                    updateStat('DOB_DATA', 'year only', thisDate)
+                    updateStat("DOB_DATA", "year only", thisDate)
                 elif year and month and not day:
-                    updateStat('DOB_DATA', 'year/month only', thisDate)
+                    updateStat("DOB_DATA", "year/month only", thisDate)
                 elif month and day and not year:
-                    updateStat('DOB_DATA', 'month/day only', thisDate)
+                    updateStat("DOB_DATA", "month/day only", thisDate)
                 else:
-                    updateStat('DOB_DATA', 'full', thisDate)
+                    updateStat("DOB_DATA", "full", thisDate)
 
                 formattedDate = baseLibrary.formatDate(thisDate)
                 if formattedDate:
                     thisList.append({dateType: formattedDate})
             else:
-                jsonData[dateType] = thisDate
-            updateStat('ATTRIBUTE', dateType, thisDate)
+                json_data[dateType] = thisDate
+            updateStat("ATTRIBUTE", dateType, thisDate)
     if thisList:
-        jsonData['DATES'] = thisList
-            
-    #--addresses
+        json_data["DATES"] = thisList
+
+    # --addresses
     thisList = []
-    for addrRecord in masterRecord.findall('Address'):
+    for addrRecord in masterRecord.findall("Address"):
         address = {}
-        addrLine = getValue(addrRecord, 'AddressLine')
+        addrLine = getValue(addrRecord, "AddressLine")
         if addrLine:
             if len(addrLine.split()) > 16:
                 truncation_list.append({"AddressLine": addrLine})
-                updateStat('TRUNCATIONS', 'longAddrLineCnt', jsonData['RECORD_ID'] + ' | ' + addrLine)
-                addrLine = ' '.join(addrLine.split()[:16])
-            address['ADDR_LINE1'] = addrLine
-        addrCity = getValue(addrRecord, 'AddressCity')
+                updateStat("TRUNCATIONS", "longAddrLineCnt", json_data["RECORD_ID"] + " | " + addrLine)
+                addrLine = " ".join(addrLine.split()[:16])
+            address["ADDR_LINE1"] = addrLine
+        addrCity = getValue(addrRecord, "AddressCity")
         if addrCity:
-            address['ADDR_CITY'] = addrCity
-        addrCountry = getValue(addrRecord, 'AddressCountry')
+            address["ADDR_CITY"] = addrCity
+        addrCountry = getValue(addrRecord, "AddressCountry")
         if addrCountry:
-            address['ADDR_COUNTRY'] = countryCodes[addrCountry] if addrCountry in countryCodes else addrCountry
-            isoCountry = baseLibrary.isoCountryCode(address['ADDR_COUNTRY'])
+            address["ADDR_COUNTRY"] = countryCodes[addrCountry] if addrCountry in countryCodes else addrCountry
+            isoCountry = baseLibrary.isoCountryCode(address["ADDR_COUNTRY"])
             if isoCountry:
-                address['ADDR_COUNTRY'] = isoCountry
+                address["ADDR_COUNTRY"] = isoCountry
 
         thisList.append(address)
-        updateStat('ADDRESS', 'UNTYPED')
+        updateStat("ADDRESS", "UNTYPED")
 
     if thisList:
-        jsonData['ADDRESSES'] = thisList
+        json_data["ADDRESSES"] = thisList
 
-    #--company details (address/website)
+    # --company details (address/website)
     thisList1 = []
     thisList2 = []
-    for addrRecord in masterRecord.findall('CompanyDetails'):
+    for addrRecord in masterRecord.findall("CompanyDetails"):
         address = {}
-        address['ADDR_TYPE'] = 'BUSINESS'
-        addrLine = getValue(addrRecord, 'AddressLine')
+        address["ADDR_TYPE"] = "BUSINESS"
+        addrLine = getValue(addrRecord, "AddressLine")
         if addrLine:
             if len(addrLine.split()) > 16:
-                updateStat('TRUNCATIONS', 'longAddrLineCnt', addrLine)
-                addrLine = ' '.join(addrLine.split()[:16])
-            address['ADDR_LINE1'] = addrLine
-        addrCity = getValue(addrRecord, 'AddressCity')
+                updateStat("TRUNCATIONS", "longAddrLineCnt", addrLine)
+                addrLine = " ".join(addrLine.split()[:16])
+            address["ADDR_LINE1"] = addrLine
+        addrCity = getValue(addrRecord, "AddressCity")
         if addrCity:
-            address['ADDR_CITY'] = addrCity
-        addrCountry = getValue(addrRecord, 'AddressCountry')
+            address["ADDR_CITY"] = addrCity
+        addrCountry = getValue(addrRecord, "AddressCountry")
         if addrCountry:
-            address['ADDR_COUNTRY'] = countryCodes[addrCountry] if addrCountry in countryCodes else addrCountry
-            isoCountry = baseLibrary.isoCountryCode(address['ADDR_COUNTRY'])
+            address["ADDR_COUNTRY"] = countryCodes[addrCountry] if addrCountry in countryCodes else addrCountry
+            isoCountry = baseLibrary.isoCountryCode(address["ADDR_COUNTRY"])
             if isoCountry:
-                address['ADDR_COUNTRY'] = isoCountry
+                address["ADDR_COUNTRY"] = isoCountry
 
         thisList1.append(address)
-        updateStat('ADDRESS', 'BUSINESS')
-            
-        url = getValue(addrRecord, 'URL')
+        updateStat("ADDRESS", "BUSINESS")
+
+        url = getValue(addrRecord, "URL")
         if url:
-            thisList2.append({'WEBSITE_ADDRESS': url})
-            updateStat('ATTRIBUTE', 'WEBSITE_ADDRESS')
-            
+            thisList2.append({"WEBSITE_ADDRESS": url})
+            updateStat("ATTRIBUTE", "WEBSITE_ADDRESS")
+
     if thisList1:
-        jsonData['COMPANY_ADDRESSES'] = thisList1
+        json_data["COMPANY_ADDRESSES"] = thisList1
     if thisList2:
-        jsonData['COMPANY_WEBSITES'] = thisList2
-            
-    #--countries
+        json_data["COMPANY_WEBSITES"] = thisList2
+
+    # --countries
     thisList1 = []
-    for birthPlaceRecord in masterRecord.findall('BirthPlace/Place'):
-        birthPlace = birthPlaceRecord.attrib['name']
-        thisList1.append({'PLACE_OF_BIRTH': birthPlace})
-        updateStat('ATTRIBUTE', 'PLACE_OF_BIRTH')
- 
-    for countryRecord in masterRecord.findall('CountryDetails/Country'):
-        countryType = countryRecord.attrib['CountryType']
-        if countryType == 'Citizenship':
-            attributeType = 'CITIZENSHIP'
+    for birthPlaceRecord in masterRecord.findall("BirthPlace/Place"):
+        birthPlace = birthPlaceRecord.attrib["name"]
+        thisList1.append({"PLACE_OF_BIRTH": birthPlace})
+        updateStat("ATTRIBUTE", "PLACE_OF_BIRTH")
+
+    for countryRecord in masterRecord.findall("CountryDetails/Country"):
+        try:
+            countryType = countryRecord.attrib["CountryType"]
+        except:
+            print("bad country record!", json_data["RECORD_ID"])
+            print(countryRecord)
+            continue
+        if countryType == "Citizenship":
+            attributeType = "CITIZENSHIP"
         else:
-            if countryType == 'REGISTRATION':
-                usageType = 'REGISTRATION'
-            elif countryType == 'Resident of':
-                usageType = 'RESIDENT'
-            elif countryType == 'Jurisdiction':
-                usageType = 'JURISDICTION'
-            elif countryType == 'Country of Affiliation':
-                usageType = 'AFFILIATED'
-            elif countryType == 'Enhanced Risk Country':
-                usageType = 'RISK'
+            if countryType == "REGISTRATION":
+                usageType = "REGISTRATION"
+            elif countryType == "Resident of":
+                usageType = "RESIDENT"
+            elif countryType == "Jurisdiction":
+                usageType = "JURISDICTION"
+            elif countryType == "Country of Affiliation":
+                usageType = "AFFILIATED"
+            elif countryType == "Enhanced Risk Country":
+                usageType = "RISK"
             else:
-                usageType = 'OTHER'
-            attributeType = usageType + '_COUNTRY_OF_ASSOCIATION'
+                usageType = "OTHER"
+            attributeType = usageType + "_COUNTRY_OF_ASSOCIATION"
 
         itemNum = 0
-        for countryValue in countryRecord.findall('CountryValue'):
-            countryCode = countryValue.attrib['Code']
+        for countryValue in countryRecord.findall("CountryValue"):
+            countryCode = countryValue.attrib["Code"]
             countryName = countryCodes[countryCode] if countryCode in countryCodes else countryCode
             isoCountry = baseLibrary.isoCountryCode(countryName)
             if isoCountry:
                 countryName = isoCountry
 
             thisList1.append({attributeType: countryName})
-            updateStat('COUNTRIES', attributeType, countryName)
- 
-    if thisList1:
-        jsonData['COUNTRIES'] = thisList1
+            updateStat("COUNTRIES", attributeType, countryName)
 
-    #--identifiers
+    if thisList1:
+        json_data["COUNTRIES"] = thisList1
+
+    # --identifiers
     itemNum = 0
     thisList = []
-    for idRecord in masterRecord.findall('IDNumberTypes/ID'):
-        idType = idRecord.attrib['IDType']
-        for idValue in idRecord.findall('IDValue'):
+    for idRecord in masterRecord.findall("IDNumberTypes/ID"):
+        idType = idRecord.attrib["IDType"]
+        for idValue in idRecord.findall("IDValue"):
             idNumber = getValue(idValue)
-            idNotes = getAttr(idValue, 'IDnotes')
+            idNotes = getAttr(idValue, "IDnotes")
             if not idNotes:
-                idNotes = ''
+                idNotes = ""
 
             attrType1 = None
             attrType2 = None
             countryCheck = 0
 
-            if idType.upper() == 'SOCIAL SECURITY NO.':
-                attrType1 = 'SSN_NUMBER'
-            elif idType.upper() == 'PASSPORT NO.':
-                attrType1 = 'PASSPORT_NUMBER'
-                attrType2 = 'PASSPORT_COUNTRY'
+            if idType.upper() == "SOCIAL SECURITY NO.":
+                attrType1 = "SSN_NUMBER"
+            elif idType.upper() == "PASSPORT NO.":
+                attrType1 = "PASSPORT_NUMBER"
+                attrType2 = "PASSPORT_COUNTRY"
                 countryCheck = 1
-            elif idType.upper() == 'DRIVING LICENCE NO.':
-                attrType1 = 'DRIVERS_LICENSE_NUMBER'
-                attrType2 = 'DRIVERS_LICENSE_STATE'
+            elif idType.upper() == "DRIVING LICENCE NO.":
+                attrType1 = "DRIVERS_LICENSE_NUMBER"
+                attrType2 = "DRIVERS_LICENSE_STATE"
                 countryCheck = 2
-            elif idType.upper() == 'NATIONAL ID': 
-                attrType1 = 'NATIONAL_ID_NUMBER'
-                attrType2 = 'NATIONAL_ID_COUNTRY'
+            elif idType.upper() == "NATIONAL ID":
+                attrType1 = "NATIONAL_ID_NUMBER"
+                attrType2 = "NATIONAL_ID_COUNTRY"
                 countryCheck = 1
-            elif idType.upper() == 'NATIONAL TAX NO.':
-                attrType1 = 'TAX_ID_NUMBER'
-                attrType2 = 'TAX_ID_COUNTRY'
+            elif idType.upper() == "NATIONAL TAX NO.":
+                attrType1 = "TAX_ID_NUMBER"
+                attrType2 = "TAX_ID_COUNTRY"
                 countryCheck = 1
-            elif idType.upper() == 'COMPANY IDENTIFICATION NO.':
-                attrType1 = 'COMPANY_ID_NUMBER'
-                attrType2 = 'COMPANY_ID_COUNTRY'
+            elif idType.upper() == "COMPANY IDENTIFICATION NO.":
+                attrType1 = "COMPANY_ID_NUMBER"
+                attrType2 = "COMPANY_ID_COUNTRY"
                 countryCheck = 1
-            elif idType.upper() == 'DUNS NUMBER':
-                attrType1 = 'DUNS_NUMBER'
-            elif idType.upper() == 'OFAC UNIQUE ID':
-                attrType1 = 'OFAC_ID'
-            elif idType.upper() == 'NATIONAL PROVIDER IDENTIFIER (NPI)' or idNotes.startswith('NPI') or '(NPI)' in idNotes.upper():
-                attrType1 = 'NPI_NUMBER'
-            elif idType.upper() == 'LEGAL ENTITY IDENTIFIER (LEI)':
-                attrType1 = 'LEI_NUMBER'
-            elif idType.upper() == 'NATIONAL CRIMINAL IDENTIFICATION CODE (USA)' or '(NCIC)' in idNotes.upper():
-                attrType1 = 'NCIC_NUMBER'
-            elif idType.upper() == 'CENTRAL REGISTRATION DEPOSITORY (CRD)':
-                attrType1 = 'CRD_NUMBER'
-            elif idType.upper() == 'INTERNATIONAL MARITIME ORGANIZATION (IMO) SHIP NO.':
-                attrType1 = 'IMO_NUMBER'
-            elif idType.upper() == 'INTERNATIONAL SECURITIES IDENTIFICATION NUMBER (ISIN)':
-                attrType1 = 'ISIN_NUMBER'
-            elif idType.upper() == 'MSB LICENCE NUMBER':
-                attrType1 = 'MSB_LICENSE_NUMBER'
-            elif idType.upper() == 'MARIJUANA LICENCE NUMBER':
-                attrType1 = 'MARIJUANA_LICENSE_NUMBER'
-            elif idType.upper() == 'OTHERS' and idNotes.upper() == 'MMSI':
-                attrType1 = 'MMSI_NUMBER'
-            elif '(MSN)' in idType.upper():
-                attrType1 = 'AIRCRAFT_MFG_SERIAL_NUM'
-            elif idType.upper() == 'OTHERS' and 'AIRCRAFT TAIL NUMBER' in idNotes.upper():
-                attrType1 = 'AIRCRAFT_TAIL_NUMBER'
+            elif idType.upper() == "DUNS NUMBER":
+                attrType1 = "DUNS_NUMBER"
+            elif idType.upper() == "OFAC UNIQUE ID":
+                attrType1 = "OFAC_ID"
+            elif (
+                idType.upper() == "NATIONAL PROVIDER IDENTIFIER (NPI)"
+                or idNotes.startswith("NPI")
+                or "(NPI)" in idNotes.upper()
+            ):
+                attrType1 = "NPI_NUMBER"
+            elif idType.upper() == "LEGAL ENTITY IDENTIFIER (LEI)":
+                attrType1 = "LEI_NUMBER"
+            elif idType.upper() == "NATIONAL CRIMINAL IDENTIFICATION CODE (USA)" or "(NCIC)" in idNotes.upper():
+                attrType1 = "NCIC_NUMBER"
+            elif idType.upper() == "CENTRAL REGISTRATION DEPOSITORY (CRD)":
+                attrType1 = "CRD_NUMBER"
+            elif idType.upper() == "INTERNATIONAL MARITIME ORGANIZATION (IMO) SHIP NO.":
+                attrType1 = "IMO_NUMBER"
+            elif idType.upper() == "INTERNATIONAL SECURITIES IDENTIFICATION NUMBER (ISIN)":
+                attrType1 = "ISIN_NUMBER"
+            elif idType.upper() == "MSB LICENCE NUMBER":
+                attrType1 = "MSB_LICENSE_NUMBER"
+            elif idType.upper() == "MARIJUANA LICENCE NUMBER":
+                attrType1 = "MARIJUANA_LICENSE_NUMBER"
+            elif idType.upper() == "OTHERS" and idNotes.upper() == "MMSI":
+                attrType1 = "MMSI_NUMBER"
+            elif "(MSN)" in idType.upper():
+                attrType1 = "AIRCRAFT_MFG_SERIAL_NUM"
+            elif idType.upper() == "OTHERS" and "AIRCRAFT TAIL NUMBER" in idNotes.upper():
+                attrType1 = "AIRCRAFT_TAIL_NUMBER"
             else:
+                # attrType1 = 'OTHER_ID_NUMBER'
+                # attrType2 = 'OTHER_ID_COUNTRY'
+                # countryCheck = 1
                 attrType1 = None
 
-            #--if mapped
+            # --if mapped
             if attrType1:
 
-                #--parse notes for a country or state code
+                idDict = {}
+
+                # --parse notes for a country or state code
                 isoCode = None
                 if idNotes:
 
-                    #--try for country code
+                    # --try for country code
                     if countryCheck:
-                        isoCode = idNoteParse(idNotes, 'country')
+                        isoCode = idNoteParse(idNotes, "country")
 
-                    #--try for US state code
-                    if countryCheck == 2 and (isoCode in ('USA', 'US') or not isoCode):
-                        isoCode = idNoteParse(idNotes, 'state')
+                    # --try for US state code
+                    if countryCheck == 2 and (isoCode in ("USA", "US") or not isoCode):
+                        isoCode = idNoteParse(idNotes, "state")
 
-                #--create the identity structure
-                idDict = {}
+                    if attrType1 == "NATIONAL_ID_NUMBER":
+                        idDict["NATIONAL_ID_TYPE"] = idNotes
+                    elif attrType1 == "OTHER_ID_NUMBER":
+                        idDict["OTHER_ID_TYPE"] = idNotes
+
+                # --create the identity structure
                 idDict[attrType1] = idNumber
-                if attrType2 and isoCode: #--the notes should contain a country or a state
+                if attrType2 and isoCode:  # --the notes should contain a country or a state
                     idDict[attrType2] = isoCode
                 thisList.append(idDict)
-                updateStat('ID_TYPE', '%s | %s' % (attrType1, isoCode), idNumber)
+                updateStat("ID_TYPE", "%s | %s" % (attrType1, isoCode), idNumber)
 
-            #--un-mapped
+            # --un-mapped
             else:
-                updateStat('UNKNOWN', '%s | %s' % (idType, idNotes), idNumber)
+                updateStat("UNKNOWN", "%s | %s" % (idType, idNotes), idNumber)
                 itemNum += 1
-                jsonData['ID%s' % itemNum] = idType + ' = ' + idNumber + ((' ' + idNotes) if idNotes else '')
-            
-    if thisList:
-        jsonData['IDENTIFIERS'] = thisList
+                json_data["ID%s" % itemNum] = idType + " = " + idNumber + ((" " + idNotes) if idNotes else "")
 
-    #--descriptions
+    if thisList:
+        json_data["IDENTIFIERS"] = thisList
+
+    # --descriptions
     itemNum = 0
-    for descriptionRecord in masterRecord.findall('Descriptions/Description'):
+    for descriptionRecord in masterRecord.findall("Descriptions/Description"):
         description1Code = None
         description2Code = None
         description3Code = None
-        try: 
-            description1 = '%s=%s' % (descriptionRecord.attrib['Description1'], description1Codes[descriptionRecord.attrib['Description1']])
-            description1Code = descriptionRecord.attrib['Description1']
-        except: description1 = ''
-        try: 
-            description2 = '%s=%s' % (descriptionRecord.attrib['Description2'], description2Codes[descriptionRecord.attrib['Description2']])
-            description2Code = descriptionRecord.attrib['Description2']
-        except: description2 = ''
-        try: 
-            description3 = '%s=%s' % (descriptionRecord.attrib['Description3'], description3Codes[descriptionRecord.attrib['Description3']])
-            description3Code = description3Codes[descriptionRecord.attrib['Description3']].upper()
-        except: description3 = ''
+        try:
+            description1 = "%s=%s" % (
+                descriptionRecord.attrib["Description1"],
+                description1Codes[descriptionRecord.attrib["Description1"]],
+            )
+            description1Code = descriptionRecord.attrib["Description1"]
+        except:
+            description1 = ""
+        try:
+            description2 = "%s=%s" % (
+                descriptionRecord.attrib["Description2"],
+                description2Codes[descriptionRecord.attrib["Description2"]],
+            )
+            description2Code = descriptionRecord.attrib["Description2"]
+        except:
+            description2 = ""
+        try:
+            description3 = "%s=%s" % (
+                descriptionRecord.attrib["Description3"],
+                description3Codes[descriptionRecord.attrib["Description3"]],
+            )
+            description3Code = description3Codes[descriptionRecord.attrib["Description3"]].upper()
+        except:
+            description3 = ""
         if description1 or description2 or description3:
             itemNum += 1
             description = description1
-            description += (' | ' if description2 else '') + description2
-            description += (' | ' if description3 else '') + description3
-            jsonData["Description%s" % itemNum] = description
-            updateStat('DESCRIPTIONS', description, jsonData['RECORD_ID'])
+            description += (" | " if description2 else "") + description2
+            description += (" | " if description3 else "") + description3
+            json_data["Description%s" % itemNum] = description
+            updateStat("DESCRIPTIONS", description, json_data["RECORD_ID"])
 
-        #--record type reclassifications
-        if description3Code == 'SHIP':
-            recordType = 'VESSEL'
-        if description3Code == 'AIRCRAFT':
-            recordType = 'AIRCRAFT'
+        # --record type reclassifications
+        if description3Code == "SHIP":
+            recordType = "VESSEL"
+        if description3Code == "AIRCRAFT":
+            recordType = "AIRCRAFT"
 
-    #--roles
-    for roleRecord in masterRecord.findall('RoleDetail/Roles'):
+    # --roles
+    for roleRecord in masterRecord.findall("RoleDetail/Roles"):
         itemNum = 0
-        roleType = roleRecord.attrib['RoleType']
-        for occTitle in roleRecord.findall('OccTitle'):
+        roleType = roleRecord.attrib["RoleType"]
+        for occTitle in roleRecord.findall("OccTitle"):
             itemNum += 1
-            fromDate = concatDateParts(getAttr(occTitle, 'SinceDay'), getAttr(occTitle, 'SinceMonth'), getAttr(occTitle, 'SinceYear'))
-            thruDate = concatDateParts(getAttr(occTitle, 'ToDay'), getAttr(occTitle, 'ToMonth'), getAttr(occTitle, 'ToYear'))
+            fromDate = concatDateParts(
+                getAttr(occTitle, "SinceDay"), getAttr(occTitle, "SinceMonth"), getAttr(occTitle, "SinceYear")
+            )
+            thruDate = concatDateParts(
+                getAttr(occTitle, "ToDay"), getAttr(occTitle, "ToMonth"), getAttr(occTitle, "ToYear")
+            )
             thisRole = getValue(occTitle)
             if fromDate:
-                thisRole += ' From ' + fromDate
+                thisRole += " From " + fromDate
             if thruDate:
-                thisRole += ' To ' + thruDate
-            jsonData[roleType + str(itemNum)] = thisRole
-            updateStat('OTHER', 'ROLES', thisRole)
+                thisRole += " To " + thruDate
+            json_data[roleType + str(itemNum)] = thisRole
+            updateStat("OTHER", "ROLES", thisRole)
 
-    #--references
+    # --references
     itemNum = 0
-    for referenceRecord in masterRecord.findall('SanctionsReferences/Reference'):
+    for referenceRecord in masterRecord.findall("SanctionsReferences/Reference"):
         itemNum += 1
-        referenceName = '%s=%s' % (getValue(referenceRecord), referenceCodes[getValue(referenceRecord)])
-        fromDate = concatDateParts(getAttr(referenceRecord, 'SinceDay'), getAttr(referenceRecord, 'SinceMonth'), getAttr(referenceRecord, 'SinceYear'))
-        thruDate = concatDateParts(getAttr(referenceRecord, 'ToDay'), getAttr(referenceRecord, 'ToMonth'), getAttr(referenceRecord, 'ToYear'))
+        referenceName = "%s=%s" % (getValue(referenceRecord), referenceCodes[getValue(referenceRecord)])
+        fromDate = concatDateParts(
+            getAttr(referenceRecord, "SinceDay"),
+            getAttr(referenceRecord, "SinceMonth"),
+            getAttr(referenceRecord, "SinceYear"),
+        )
+        thruDate = concatDateParts(
+            getAttr(referenceRecord, "ToDay"), getAttr(referenceRecord, "ToMonth"), getAttr(referenceRecord, "ToYear")
+        )
         if fromDate:
-            referenceName += ' From ' + fromDate
+            referenceName += " From " + fromDate
         if thruDate:
-            referenceName += ' To ' + thruDate
-        jsonData["Reference%s" % itemNum] = referenceName
-        updateStat('OTHER', 'REFERENCES', referenceName)
-        
-    #--sources
-    if extendedFormat:  #--disabled to keep reports smaller
-        itemNum = 0
-        for sourceRecord in masterRecord.findall('SourceDescription/Source'):
-            itemNum += 1
-            sourceName = sourceRecord.attrib['name']
-            updateStat('OTHER', 'SOURCES')
-            jsonData["Source%s" % itemNum] = sourceName
+            referenceName += " To " + thruDate
+        json_data["Reference%s" % itemNum] = referenceName
+        updateStat("OTHER", "REFERENCES", referenceName)
 
-    #--images
-    if extendedFormat:  #--disabled to keep reports smaller
+    # --sources
+    if extendedFormat:  # --disabled to keep reports smaller
         itemNum = 0
-        for imageRecord in masterRecord.findall('Images/Image'):
+        for sourceRecord in masterRecord.findall("SourceDescription/Source"):
             itemNum += 1
-            imageURL = imageRecord.attrib['URL']
-            #--updateStat('source-' + sourceName) <--too many of these to log
-            jsonData["Image%s" % itemNum] = imageURL
+            sourceName = sourceRecord.attrib["name"]
+            updateStat("OTHER", "SOURCES")
+            json_data["Source%s" % itemNum] = sourceName
 
-    #--disclosed relationships
+    # --images
+    if extendedFormat:  # --disabled to keep reports smaller
+        itemNum = 0
+        for imageRecord in masterRecord.findall("Images/Image"):
+            itemNum += 1
+            imageURL = imageRecord.attrib["URL"]
+            # --updateStat('source-' + sourceName) <--too many of these to log
+            json_data["Image%s" % itemNum] = imageURL
+
+    # --disclosed relationships
     thisList = []
-    thisId = jsonData['DJ_PROFILE_ID']
+    thisId = json_data["DJ_PROFILE_ID"]
     if thisId in relationships:
 
-        if relationshipStyle == 2: 
+        if relationshipStyle == 2:
             thisRecord = {}
-            thisRecord['REL_ANCHOR_DOMAIN'] = 'DJ_ID'
-            thisRecord['REL_ANCHOR_KEY'] = thisId
+            thisRecord["REL_ANCHOR_DOMAIN"] = "DJ_ID"
+            thisRecord["REL_ANCHOR_KEY"] = thisId
             thisList.append(thisRecord)
 
-
         for relationship in relationships[thisId]:
-            otherId = relationship['id']
-            relType = relationCodes[relationship['code']].replace(' ', '_').replace('-','_')
-            if relationship['ex'] == 'Yes':
-                relType = 'EX_' + relType
-
+            otherId = relationship["id"]
+            relType = relationCodes[relationship["code"]].replace(" ", "_").replace("-", "_")
+            if relationship["ex"] == "Yes":
+                relType = "EX_" + relType
 
             thisRecord = {}
             if noRelationships:
-                thisRecord['Related to'] = '%s | %s | %s' % (dataSource, otherId, relType)
+                thisRecord["Related to"] = "%s | %s | %s" % (dataSource, otherId, relType)
 
-            #--new relationship strategy
+            # --new relationship strategy
             elif relationshipStyle == 2:
-                thisRecord['REL_POINTER_DOMAIN'] = 'DJ_ID'
-                thisRecord['REL_POINTER_KEY'] = otherId
-                thisRecord['REL_POINTER_ROLE'] = relType
+                thisRecord["REL_POINTER_DOMAIN"] = "DJ_ID"
+                thisRecord["REL_POINTER_KEY"] = otherId
+                thisRecord["REL_POINTER_ROLE"] = relType
             else:
 
-                #--get other side
+                # --get other side
                 relType1 = None
                 if otherId in relationships:
                     for relationship1 in relationships[otherId]:
-                        if relationship1['id'] == thisId:
-                            relType1 = relationCodes[relationship1['code']].replace(' ', '_').replace('-','_')
+                        if relationship1["id"] == thisId:
+                            relType1 = relationCodes[relationship1["code"]].replace(" ", "_").replace("-", "_")
                             break
-                relKey = '-'.join(sorted([thisId, otherId]))
+                relKey = "-".join(sorted([thisId, otherId]))
                 if relType1 and relType1 != relType:
-                    relType = '/'.join(sorted([relType, relType1]))
+                    relType = "/".join(sorted([relType, relType1]))
 
-                #--create the relationship
-                thisRecord['RELATIONSHIP_TYPE'] = relType
-                thisRecord['RELATIONSHIP_KEY'] = relKey
+                # --create the relationship
+                thisRecord["RELATIONSHIP_TYPE"] = relType
+                thisRecord["RELATIONSHIP_KEY"] = relKey
 
-            updateStat('RELATIONSHIPS', relType)
+            updateStat("RELATIONSHIPS", relType)
             thisList.append(thisRecord)
 
-            #--group association name
-            if recordType == 'PERSON' and relationship['id'] in entityNames:
+            # --group association name
+            if recordType == "PERSON" and relationship["id"] in entityNames:
                 thisRecord = {}
-                #thisRecord[relType + '_GROUP_ASSOCIATION_TYPE'] = 'ORG'
-                thisRecord[relType + '_GROUP_ASSOCIATION_ORG_NAME'] = entityNames[relationship['id']]
+                # thisRecord[relType + '_GROUP_ASSOCIATION_TYPE'] = 'ORG'
+                thisRecord[relType + "_GROUP_ASSOCIATION_ORG_NAME"] = entityNames[relationship["id"]]
                 thisList.append(thisRecord)
-                updateStat('GROUP_ASSOCIATION', 'NAME', relType)
+                updateStat("GROUP_ASSOCIATION", "NAME", relType)
 
-            #--group association IDs
-            if recordType == 'PERSON' and relationship['id'] in entityDuns:
+            # --group association IDs
+            if recordType == "PERSON" and relationship["id"] in entityDuns:
                 thisRecord = {}
-                thisRecord[relType + '_GROUP_ASSN_ID_TYPE'] = 'DUNS'
-                thisRecord[relType + '_GROUP_ASSN_ID_NUMBER'] = entityDuns[relationship['id']]
+                thisRecord[relType + "_GROUP_ASSN_ID_TYPE"] = "DUNS"
+                thisRecord[relType + "_GROUP_ASSN_ID_NUMBER"] = entityDuns[relationship["id"]]
                 thisList.append(thisRecord)
-                updateStat('GROUP_ASSOCIATION', 'DUNS', relType)
+                updateStat("GROUP_ASSOCIATION", "DUNS", relType)
 
     if thisList:
-        jsonData['RELATIONSHIPS'] = thisList
-        
-    #--assign the entity and record type
-    jsonData['RECORD_TYPE'] = recordType.upper()
-    updateStat('RECORD_TYPE', jsonData['RECORD_TYPE'])
+        json_data["RELATIONSHIPS"] = thisList
 
     if truncation_list:
-        jsonData['truncations'] = truncation_list
+        json_data["truncations"] = truncation_list
 
-    #--add composite keys
+    # --add composite keys
     if addCompositeKeys:
-        jsonData = baseLibrary.jsonUpdater(jsonData)
+        json_data = baseLibrary.jsonUpdater(json_data)
 
-    return jsonData
-        
-#----------------------------------------
+    return json_data
+
+
+# ----------------------------------------
 if __name__ == "__main__":
     appPath = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -725,14 +813,65 @@ if __name__ == "__main__":
     progressInterval = 10000
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('-i', '--input_file', default=os.getenv('input_file', None), type=str, help='A Dow Jones xml file for PFA or HRF.')
-    argparser.add_argument('-o', '--output_file', default=os.getenv('output_file', None), type=str, help='output filename, defaults to input file name with a .json extension.')
-    argparser.add_argument('-l', '--log_file', default=os.getenv('log_file', None), type=str, help='optional statistics filename (json format).')
-    argparser.add_argument('-d', '--data_source', default=os.getenv('data_source'.upper(), None), type=str, help='please use DJ-PFA, DJ-HRF or DJ-AME based on the type of file.')
-    argparser.add_argument('-r', '--relationship_style', dest='relationship_style', type=int, default=2, help='styles: 0=None, 1=Legacy linking, 2=Pointers (new for Senzing v1.15)')
-    argparser.add_argument('-e', '--extended_format', dest='extended_format', action='store_true', default=False, help='include profile notes, sources, and images')
-    argparser.add_argument('-D', '--debug_level', dest='debug_level', type=int, default=0, help='debug options: 1=Show XML only, 2=Show XML and JSON')
-    argparser.add_argument('-L', '--lookup_profile', dest='dj_profile_id', type=str, help='enter a DJ profile ID to lookup for debugging purposes')
+    argparser.add_argument(
+        "-i",
+        "--input_file",
+        default=os.getenv("input_file", None),
+        type=str,
+        help="A Dow Jones xml file for PFA or HRF.",
+    )
+    argparser.add_argument(
+        "-o",
+        "--output_file",
+        default=os.getenv("output_file", None),
+        type=str,
+        help="output filename, defaults to input file name with a .json extension.",
+    )
+    argparser.add_argument(
+        "-l",
+        "--log_file",
+        default=os.getenv("log_file", None),
+        type=str,
+        help="optional statistics filename (json format).",
+    )
+    argparser.add_argument(
+        "-d",
+        "--data_source",
+        default=os.getenv("data_source".upper(), None),
+        type=str,
+        help="please use DJ-PFA, DJ-HRF or DJ-AME based on the type of file.",
+    )
+    argparser.add_argument(
+        "-r",
+        "--relationship_style",
+        dest="relationship_style",
+        type=int,
+        default=2,
+        help="styles: 0=None, 1=Legacy linking, 2=Pointers (new for Senzing v1.15)",
+    )
+    argparser.add_argument(
+        "-e",
+        "--extended_format",
+        dest="extended_format",
+        action="store_true",
+        default=False,
+        help="include profile notes, sources, and images",
+    )
+    argparser.add_argument(
+        "-D",
+        "--debug_level",
+        dest="debug_level",
+        type=int,
+        default=0,
+        help="debug options: 1=Show XML only, 2=Show XML and JSON",
+    )
+    argparser.add_argument(
+        "-L",
+        "--lookup_profile",
+        dest="dj_profile_id",
+        type=str,
+        help="enter a DJ profile ID to lookup for debugging purposes",
+    )
 
     args = argparser.parse_args()
     inputFileName = args.input_file
@@ -743,54 +882,55 @@ if __name__ == "__main__":
     extendedFormat = args.extended_format
     debugLevel = args.debug_level
     dj_profile_id = args.dj_profile_id
-    if dj_profile_id and not debugLevel:  #--looking up a profile is a form of debugging
+    if dj_profile_id and not debugLevel:  # --looking up a profile is a form of debugging
         debugLevel = 1
 
-    #--deprecated arguments
+    # --deprecated arguments
     noRelationships = False
     addCompositeKeys = False
-    
+
     if not inputFileName:
-        print('')
-        print('Please select a dow jones xml input file')
-        print('')
+        print("")
+        print("Please select a dow jones xml input file")
+        print("")
         sys.exit(1)
 
     if not os.path.exists(inputFileName):
-        print('')
-        print('Input file %s not found!' % inputFileName)
-        print('')
+        print("")
+        print("Input file %s not found!" % inputFileName)
+        print("")
         sys.exit(1)
-    
-    #--default and validate the data source
+
+    # --default and validate the data source
     if not dataSource:
-        dataSource = 'DJ-PFA'
+        dataSource = "DJ-PFA"
     else:
         dataSource = dataSource.upper()
-        
+
     if not (outputFileName) and not debugLevel:
-        print('')
-        print('Please supply an output file name.')
-        print('')
+        print("")
+        print("Please supply an output file name.")
+        print("")
         sys.exit(1)
 
-    #--open output file
+    # --open output file
     if outputFileName:
-        try: outputFileHandle = open(outputFileName, "w", encoding='utf-8')
+        try:
+            outputFileHandle = open(outputFileName, "w", encoding="utf-8")
         except IOError as err:
-            print('')
-            print('Could not open output file %s for writing' % outputFileName)
-            print(' %s' % err)
-            print('')
+            print("")
+            print("Could not open output file %s for writing" % outputFileName)
+            print(" %s" % err)
+            print("")
             sys.exit(1)
 
-    #--initialize some stats
+    # --initialize some stats
     recordCnt = 0
     personCnt = 0
     entityCnt = 0
     statPack = {}
-    
-    #--initialize code dictionaries
+
+    # --initialize code dictionaries
     countryCodes = {}
     description1Codes = {}
     description2Codes = {}
@@ -801,190 +941,222 @@ if __name__ == "__main__":
     entityNames = {}
     entityDuns = {}
 
-    #--iterate through the xml file serially as it is huge! 
-    print('')
-    print('Data source set to %s' % dataSource)
-    print('')
-    print('Reading from: %s ...' % inputFileName)
+    # --iterate through the xml file serially as it is huge!
+    print("")
+    print("Data source set to %s" % dataSource)
+    print("")
+    print("Reading from: %s ..." % inputFileName)
     if debugLevel != 1:
         xmlReader = etree.iterparse(inputFileName, events=("start", "end"))
-        for event, node in xmlReader:
-            if event == 'end':
 
-                if node.tag == 'CountryList':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('CountryName'):
-                        countryCodes[getAttr(record, 'code')] = getAttr(record, 'name')
-                    node.clear()
-                    
-                elif node.tag == 'Description1List':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('Description1Name'):
-                        description1Codes[getAttr(record, 'Description1Id')] = getValue(record)
-                    node.clear()
+        # for event, node in xmlReader:
+        while True:
+            try:
+                event, node = next(xmlReader)
+            except StopIteration:
+                break
+            except Exception as e:
+                print(e)
+                continue
 
-                elif node.tag == 'Description2List':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('Description2Name'):
-                        description2Codes[getAttr(record, 'Description2Id')] = getValue(record)
+            if event == "end":
+
+                if node.tag == "CountryList":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("CountryName"):
+                        countryCodes[getAttr(record, "code")] = getAttr(record, "name")
                     node.clear()
 
-                elif node.tag == 'Description3List':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('Description3Name'):
-                        description3Codes[getAttr(record, 'Description3Id')] = getValue(record)
+                elif node.tag == "Description1List":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("Description1Name"):
+                        description1Codes[getAttr(record, "Description1Id")] = getValue(record)
                     node.clear()
 
-                elif node.tag == 'SanctionsReferencesList':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('ReferenceName'):
-                        referenceCodes[getAttr(record, 'code')] = getAttr(record, 'name')
+                elif node.tag == "Description2List":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("Description2Name"):
+                        description2Codes[getAttr(record, "Description2Id")] = getValue(record)
                     node.clear()
 
-                elif node.tag == 'RelationshipList':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('Relationship'):
-                        try: relationCodes[getAttr(record, 'code')] = getAttr(record, 'name').replace('_', '-')
-                        except: #--all but the anti-corruption (soc) feed use the name attribute
-                            try: relationCodes[getAttr(record, 'code')] = getValue(record).replace('_', '-')
+                elif node.tag == "Description3List":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("Description3Name"):
+                        description3Codes[getAttr(record, "Description3Id")] = getValue(record)
+                    node.clear()
+
+                elif node.tag == "SanctionsReferencesList":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("ReferenceName"):
+                        referenceCodes[getAttr(record, "code")] = getAttr(record, "name")
+                    node.clear()
+
+                elif node.tag == "RelationshipList":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("Relationship"):
+                        try:
+                            relationCodes[getAttr(record, "code")] = getAttr(record, "name").replace("_", "-")
+                        except:  # --all but the anti-corruption (soc) feed use the name attribute
+                            try:
+                                relationCodes[getAttr(record, "code")] = getValue(record).replace("_", "-")
                             except:
-                                print(minidom.parseString(etree.tostring(record, 'utf-8')).toprettyxml(indent="\t"))
+                                print(minidom.parseString(etree.tostring(record, "utf-8")).toprettyxml(indent="\t"))
                     node.clear()
-                        
-                elif node.tag == 'Associations':
-                    print('loading %s ...' % node.tag) 
-                    for record in node.findall('PublicFigure'):
-                        id = getAttr(record, 'id')
+
+                elif node.tag == "Associations":
+                    print("loading %s ..." % node.tag)
+                    for record in node.findall("PublicFigure"):
+                        id = getAttr(record, "id")
                         relationships[id] = []
-                        for record1 in record.findall('Associate'):
-                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code'), 'ex': getAttr(record1, 'ex')})
-                    for record in node.findall('SpecialEntity'):
-                        id = getAttr(record, 'id')
+                        for record1 in record.findall("Associate"):
+                            relationships[id].append(
+                                {
+                                    "id": getAttr(record1, "id"),
+                                    "code": getAttr(record1, "code"),
+                                    "ex": getAttr(record1, "ex"),
+                                }
+                            )
+                    for record in node.findall("SpecialEntity"):
+                        id = getAttr(record, "id")
                         relationships[id] = []
-                        for record1 in record.findall('Associate'):
-                            relationships[id].append({'id': getAttr(record1, 'id'), 'code': getAttr(record1, 'code'), 'ex': getAttr(record1, 'ex')})
+                        for record1 in record.findall("Associate"):
+                            relationships[id].append(
+                                {
+                                    "id": getAttr(record1, "id"),
+                                    "code": getAttr(record1, "code"),
+                                    "ex": getAttr(record1, "ex"),
+                                }
+                            )
                     node.clear()
-            
-                elif node.tag == 'Entity':
-                    id = getAttr(node, 'id')
-                    for nameRecord in node.findall('NameDetails/Name'):
-                        if nameRecord.attrib['NameType'] == 'Primary Name':
-                            for nameValue in nameRecord.findall('NameValue'):
-                                nameOrg = getValue(nameValue, 'EntityName')
+
+                elif node.tag == "Entity":
+                    id = getAttr(node, "id")
+                    for nameRecord in node.findall("NameDetails/Name"):
+                        if nameRecord.attrib["NameType"] == "Primary Name":
+                            for nameValue in nameRecord.findall("NameValue"):
+                                nameOrg = getValue(nameValue, "EntityName")
                                 if nameOrg:
                                     entityNames[id] = nameOrg
                                     break
                             break
-                    for idRecord in node.findall('IDNumberTypes/ID'):
-                        if idRecord.attrib['IDType'] == 'DUNS Number':
-                            for idValue in idRecord.findall('IDValue'):
+                    for idRecord in node.findall("IDNumberTypes/ID"):
+                        if idRecord.attrib["IDType"] == "DUNS Number":
+                            for idValue in idRecord.findall("IDValue"):
                                 idNumber = getValue(idValue)
-                                if idNumber: 
+                                if idNumber:
                                     entityDuns[id] = idNumber
                                     break
                             break
 
                     node.clear()
 
-                elif node.tag in ('Person'):
+                elif node.tag in ("Person"):
                     node.clear()
 
-    #print('countryCodes', len(countryCodes))
-    #print('description1Codes', len(description1Codes))
-    #print('description2Codes', len(description2Codes))
-    #print('description3Codes', len(description3Codes))
-    #print('referenceCodes', len(referenceCodes))
-    #print('relationCodes', len(relationCodes))
-    #print('relationships', len(relationships))
-    #print('entityNames', len(entityNames))
-    #sys.exit(1)
-    
-    #--go through a second time to process the records
-    print('')
+    # print('countryCodes', len(countryCodes))
+    # print('description1Codes', len(description1Codes))
+    # print('description2Codes', len(description2Codes))
+    # print('description3Codes', len(description3Codes))
+    # print('referenceCodes', len(referenceCodes))
+    # print('relationCodes', len(relationCodes))
+    # print('relationships', len(relationships))
+    # print('entityNames', len(entityNames))
+    # sys.exit(1)
+
+    # --go through a second time to process the records
+    print("")
     if dj_profile_id:
-        print('searching for %s ...' % dj_profile_id)
+        print("searching for %s ..." % dj_profile_id)
     else:
-        print('processing records ...')
+        print("processing records ...")
     xmlReader = etree.iterparse(inputFileName, events=("start", "end"))
-    for event, node in xmlReader:
-        if event == 'end' and node.tag in ('Person','Entity'):
-            if shutDown: 
+    # for event, node in xmlReader:
+    while True:
+        try:
+            event, node = next(xmlReader)
+        except StopIteration:
+            break
+        except Exception as e:
+            print(e)
+            continue
+        if event == "end" and node.tag in ("Person", "Entity"):
+            if shutDown:
                 break
 
-            if dj_profile_id and node.attrib['id'] != dj_profile_id:
+            if dj_profile_id and node.attrib["id"] != dj_profile_id:
                 node.clear()
                 continue
 
-            if debugLevel in (1,2):
-                print('='*50)
-                print(minidom.parseString(etree.tostring(node, 'utf-8')).toprettyxml(indent="\t"))
+            if debugLevel in (1, 2):
+                print("=" * 50)
+                print(minidom.parseString(etree.tostring(node, "utf-8")).toprettyxml(indent="\t"))
             if debugLevel == 1:
                 pause()
                 continue
 
-            if node.tag == 'Person':
-                jsonData = g2Mapping(node, 'PERSON')
-                personCnt += 1 
+            if node.tag == "Person":
+                jsonData = g2Mapping(node, "PERSON")
+                personCnt += 1
             else:
-                jsonData = g2Mapping(node, 'ORGANIZATION')
+                jsonData = g2Mapping(node, "ORGANIZATION")
                 entityCnt += 1
             msg = json.dumps(jsonData, ensure_ascii=False)
 
             if debugLevel == 2:
-                print('-'*50)
+                print("-" * 50)
                 print(json.dumps(jsonData, ensure_ascii=False, indent=4))
                 pause()
 
             if outputFileName:
-                try: outputFileHandle.write(msg + '\n')
+                try:
+                    outputFileHandle.write(msg + "\n")
                 except IOError as err:
-                    print('')
-                    print('Could not write to %s' % outputFileName)
-                    print(' %s' % err)
-                    print('')
+                    print("")
+                    print("Could not write to %s" % outputFileName)
+                    print(" %s" % err)
+                    print("")
                     shutDown = True
 
-            if dj_profile_id and node.attrib['id'] == dj_profile_id:
+            if dj_profile_id and node.attrib["id"] == dj_profile_id:
                 break
 
             node.clear()
- 
-            if shutDown: 
+
+            if shutDown:
                 break
 
-            recordCnt += 1 
+            recordCnt += 1
             if recordCnt % progressInterval == 0:
-                print('%s rows processed' % recordCnt)
-        
+                print("%s rows processed" % recordCnt)
+
     if outputFileName:
         outputFileHandle.close()
-    
-    print('%s rows processed, completed!' % recordCnt)
-    print('%s persons' % personCnt)
-    print('%s entities' % entityCnt)
-    #print('%s longNameOrgCnt' % longNameOrgCnt)
-    #print('%s longNameLastCnt' % longNameLastCnt)
-    #print('%s longNameMaidenCnt' % longNameMaidenCnt)
-    #print('%s longNameFirstCnt' % longNameFirstCnt)
-    #print('%s longNameMiddleCnt' % longNameMiddleCnt)
-    #print('%s longAddrLineCnt' % longAddrLineCnt)
-    #print('')
 
+    print("%s rows processed, completed!" % recordCnt)
+    print("%s persons" % personCnt)
+    print("%s entities" % entityCnt)
+    # print('%s longNameOrgCnt' % longNameOrgCnt)
+    # print('%s longNameLastCnt' % longNameLastCnt)
+    # print('%s longNameMaidenCnt' % longNameMaidenCnt)
+    # print('%s longNameFirstCnt' % longNameFirstCnt)
+    # print('%s longNameMiddleCnt' % longNameMiddleCnt)
+    # print('%s longAddrLineCnt' % longAddrLineCnt)
+    # print('')
 
-    #--write statistics file
-    if logFile: 
-        print('')
-        statPack['BASE_LIBRARY'] = baseLibrary.statPack
-        with open(logFile, 'w') as outfile:
-            json.dump(statPack, outfile, indent=4, sort_keys = True)    
-        print('Mapping stats written to %s' % logFile)
-    
-    print('')
+    # --write statistics file
+    if logFile:
+        print("")
+        statPack["BASE_LIBRARY"] = baseLibrary.statPack
+        with open(logFile, "w") as outfile:
+            json.dump(statPack, outfile, indent=4, sort_keys=True)
+        print("Mapping stats written to %s" % logFile)
+
+    print("")
     elapsedMins = round((time.time() - procStartTime) / 60, 1)
     if shutDown == 0:
-        print('Process completed successfully in %s minutes!' % elapsedMins)
+        print("Process completed successfully in %s minutes!" % elapsedMins)
     else:
-        print('Process aborted after %s minutes!' % elapsedMins)
-    print('')
-    
+        print("Process aborted after %s minutes!" % elapsedMins)
+    print("")
+
     sys.exit(0)

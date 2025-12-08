@@ -10,8 +10,7 @@ import sys
 import time
 import xml.dom.minidom as minidom
 
-# import xml.etree.ElementTree as etree
-import xml.etree.cElementTree as etree
+import xml.etree.ElementTree as etree
 from datetime import datetime, timedelta
 
 # --import the base mapper library and variants

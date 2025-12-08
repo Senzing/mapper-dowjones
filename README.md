@@ -16,11 +16,11 @@ _Trifecta Notes:_
 
 - If you download the Trifecta file, there is no need to download and map the individual files it contains.
 - Since the standalone SOC format is not supported, the Trifecta file is the only way to map and load it into Senzing.
-- Since the mapper only allows one data source code per file, you can specify "-d DJ-TRI" on the command line. If you want to use another code that is fine, but you will need to register it in the [dj_config_updates.json] file.
+- Since the mapper only allows one data source code per file, you can specify "-d DJ-TRI" on the command line. If you want to use another code that is fine, but you will need to register it in the [dj_config_updates.g2c] file.
 - Since the Trifecta file does not include the HRF file, you must map and load that separately if you want it.
 
 Loading Dow Jones data into Senzing requires additional features and configurations. These are contained in the
-[dj_config_updates.json] file.
+[dj_config_updates.g2c] file.
 
 Usage:
 
@@ -94,7 +94,7 @@ python3 G2ConfigTool.py <path-to-file>/dj_config_updates.g2c
 
 This will step you through the process of adding the data sources, entity types, features, attributes and other settings needed to load this watch list data into Senzing. After each command you will see a status message saying "success" or "already exists". For instance, if you run the script twice, the second time through they will all say "already exists" which is OK.
 
-see [dj_config_updates.json] for a list of configuration updates required.
+see [dj_config_updates.g2c] for a list of configuration updates required.
 
 ### Running the mapper
 
@@ -145,7 +145,7 @@ Watch lists are harder to match simply because often the only data they contain 
 - GROUP_ASSOCIATION_ORG_NAME (employers and other group affiliations)
 
 [Configuring Senzing]: #configuring-senzing
-[dj_config_updates.json]: src/dj_config_updates.g2c
+[dj_config_updates.g2c]: src/dj_config_updates.g2c
 [dj_mapper.py]: src/dj_mapper.py
 [src/dj_config_updates.g2c]: src/dj_config_updates.g2c
 [src/dj_mapper.py]: src/dj_mapper.py

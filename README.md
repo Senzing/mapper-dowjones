@@ -58,16 +58,16 @@ optional arguments:
 
 ### Prerequisites
 
-- python 3.6 or higher
-- Senzing API version 1.13 or higher
+- Python 3.9 or higher
+- Senzing 3.0 or higher
 - [Senzing/mapper-base]
 
 ### Installation
 
-Place the the following files on a directory of your choice ...
+Place the following files on a directory of your choice ...
 
 - [src/dj_mapper.py]
-- [src/dj_config_updates.json]
+- [src/dj_config_updates.g2c]
 
 _Note: Since the mapper-base project referenced above is required by this mapper, it is necessary to place them in a common directory structure like so ..._
 
@@ -89,7 +89,7 @@ _Note:_ This only needs to be performed one time! In fact you may want to add th
 From the /opt/senzing/g2/python directory ...
 
 ```console
-python3 G2ConfigTool.py <path-to-file>/dj_config_updates.json
+python3 G2ConfigTool.py <path-to-file>/dj_config_updates.g2c
 ```
 
 This will step you through the process of adding the data sources, entity types, features, attributes and other settings needed to load this watch list data into Senzing. After each command you will see a status message saying "success" or "already exists". For instance, if you run the script twice, the second time through they will all say "already exists" which is OK.
@@ -130,7 +130,7 @@ If you use the G2Loader program to load your data, from the /opt/senzing/g2/pyth
 python3 G2Loader.py -f /mapper_dowjones/output/PFA2_201902282200_F.json
 ```
 
-The PFA data set currently contains about 2.4 million records and make take a few hours to load depending on your hardware. The HRF data set only contains about 70k records and loads in a few minutes.
+The PFA data set currently contains about 2.4 million records and may take a few hours to load depending on your hardware. The HRF data set only contains about 70k records and loads in a few minutes.
 
 If you use the API directly, then you just need to perform an process() or addRecord() for each line of the file.
 
@@ -147,7 +147,7 @@ Watch lists are harder to match simply because often the only data they contain 
 [Configuring Senzing]: #configuring-senzing
 [dj_config_updates.json]: src/dj_config_updates.g2c
 [dj_mapper.py]: src/dj_mapper.py
-[src/dj_config_updates.json]: src/dj_config_updates.g2c
+[src/dj_config_updates.g2c]: src/dj_config_updates.g2c
 [src/dj_mapper.py]: src/dj_mapper.py
 [Installation]: #installation
 [Loading into Senzing]: #loading-into-senzing

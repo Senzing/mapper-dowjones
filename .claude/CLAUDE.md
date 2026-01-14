@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 This is a Senzing mapper that converts Dow Jones watchlist XML files to JSON format for loading into Senzing entity resolution. Supported Dow Jones feeds:
+
 - Risk and Compliance (PFA)
 - High Risk File (HRF)
 - Adverse Media Entities (AME)
@@ -13,12 +14,14 @@ This is a Senzing mapper that converts Dow Jones watchlist XML files to JSON for
 ## Development Setup
 
 **External Dependency**: Requires [mapper-base](https://github.com/Senzing/mapper-base) in PYTHONPATH:
+
 ```console
 export PYTHONPATH=$PYTHONPATH:/path/to/mapper-base
 ```
 
 Directory structure expectation:
-```
+
+```console
 /senzing/mappers/mapper-base
 /senzing/mappers/mapper-dowjones  <-- this repo
 ```
@@ -26,11 +29,13 @@ Directory structure expectation:
 ## Common Commands
 
 **Install development dependencies** (Python 3.10+):
+
 ```console
 pip install --dependency-groups=all -e .
 ```
 
 **Linting**:
+
 ```console
 black --check src/
 isort --check-only src/
@@ -41,12 +46,14 @@ mypy src/
 ```
 
 **Format code**:
+
 ```console
 black src/
 isort src/
 ```
 
 **Run the mapper**:
+
 ```console
 python src/dj_mapper.py -i <input.xml> -o <output.json> -d DJ-TRI
 ```

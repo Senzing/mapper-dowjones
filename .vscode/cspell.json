@@ -15,10 +15,12 @@
     "DJRC",
     "dowjones",
     "esbenp",
+    "etree",
     "htmlhelp",
     "ICLA",
     "ISIN",
     "isort",
+    "iterparse",
     "jquery",
     "jsmath",
     "kharon",
@@ -42,7 +44,8 @@
     "stackoverflow",
     "typehints",
     "venv",
-    "virtualenv"
+    "virtualenv",
+    "watchlist"
   ],
   "ignorePaths": [
     ".git/**",

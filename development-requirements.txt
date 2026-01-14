@@ -12,7 +12,7 @@ pylint-per-file-ignores==1.4.0
 pylint==3.3.7
 pytest-cov==6.2.1
 pytest-schema==0.1.2
-pytest==8.4.1
+pytest==9.0.2
 twine==6.1.0
 virtualenv==20.31.2
 wheel==0.46.1

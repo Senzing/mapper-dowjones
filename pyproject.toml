@@ -43,7 +43,7 @@ development = [
   "pytest==8.4.2; python_version <= '3.11'",
   "pytest==9.0.3; python_version > '3.11'",
   "twine==6.2.0",
-  "virtualenv==21.3.1",
+  "virtualenv==21.3.3",
   "wheel==0.47.0",
 ]
 documentation = [
@@ -74,7 +74,7 @@ lint = [
   "flake8==7.3.0",
   "isort==6.1.0; python_version <= '3.11'",
   "isort==8.0.1; python_version > '3.11'",
-  "mypy==2.0.0",
+  "mypy==2.1.0",
   "pylint-per-file-ignores==2.0.3; python_version <= '3.11'",
   "pylint-per-file-ignores==3.2.1; python_version > '3.11'",
   "pylint==3.3.9; python_version <= '3.11'",

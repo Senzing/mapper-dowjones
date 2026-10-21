@@ -1131,7 +1131,7 @@ if __name__ == "__main__":
 
                     node.clear()
 
-                elif node.tag in ("Person"):
+                elif node.tag == "Person":
                     node.clear()
 
     # print('countryCodes', len(countryCodes))

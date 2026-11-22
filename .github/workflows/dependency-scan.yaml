@@ -1,0 +1,64 @@
+name: Dependency scan
+
+# pip-audit over every pinned dependency group.
+#
+# A bare `pip-audit .` audits only [project].dependencies, which this repo
+# does not have (every pin lives in [dependency-groups]), so it always passes.
+# Instead install the groups into a venv and audit exactly what got installed,
+# on both ends of requires-python because group pins can resolve per
+# interpreter.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  pip-audit:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Groups only, not this unpublished project: pip-audit cannot look it up
+      # on PyPI, and --strict below would fail on it. --upgrade-deps replaces
+      # the stale pip/setuptools a 3.11 venv is seeded with.
+      - name: Install dependency groups
+        run: |
+          python -m venv --upgrade-deps ./venv
+          ./venv/bin/python -m pip install --group all
+          ./venv/bin/python -m pip freeze --all > "${RUNNER_TEMP}/installed.txt"
+
+      # pip-audit lives in its own venv so its dependencies neither change nor
+      # join the audited set. Pinned: a silent major bump would change what
+      # this gate means.
+      - name: Install pip-audit
+        run: |
+          python -m venv ./audit-venv
+          ./audit-venv/bin/python -m pip install pip-audit==2.10.1
+
+      # The freeze is fully pinned, so no resolution is needed (--no-deps,
+      # --disable-pip). --strict fails on any package pip-audit cannot audit,
+      # so an unresolvable dependency cannot pass as "no known vulnerabilities".
+      - name: Run pip-audit
+        run: ./audit-venv/bin/pip-audit --strict --desc --no-deps --disable-pip --requirement "${RUNNER_TEMP}/installed.txt"

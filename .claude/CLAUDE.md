@@ -28,7 +28,7 @@ Directory structure expectation:
 
 ## Common Commands
 
-**Install development dependencies** (Python 3.10+):
+**Install development dependencies** (Python 3.11+):
 
 ```console
 pip install --dependency-groups=all -e .

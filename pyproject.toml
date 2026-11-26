@@ -34,7 +34,7 @@ all = [
 ]
 development = [
   "build==1.6.1",
-  "coverage==7.16.2",
+  "coverage==7.17.2",
   "cryptography==50.0.2",
   "psutil==7.2.2",
   "pytest-cov==7.1.0",
@@ -75,7 +75,7 @@ lint = [
 ]
 test = [
   "pytest==9.2.0",
-  "coverage==7.16.2",
+  "coverage==7.17.2",
 ]
 
 [tool.setuptools.packages.find]
